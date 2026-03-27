@@ -4,8 +4,9 @@ import request from '@/utils/request'
  * 查询出口路由列表
  * @param {string} clusterName - 集群名称
  * @param {string} namespace - 命名空间（可选）
+ * @returns {Promise}
  */
-export function getEgressPolicies(clusterName, namespace) {
+export function getEgressPolicies(clusterName, namespace = '') {
   return request({
     url: `/clusters/${clusterName}/egressPolicies`,
     method: 'get',
@@ -17,11 +18,12 @@ export function getEgressPolicies(clusterName, namespace) {
  * 查询出口路由详情
  * @param {string} clusterName - 集群名称
  * @param {string} namespace - 命名空间
- * @param {string} egressPolicyName - 出口路由名称
+ * @param {string} policyName - 路由名称
+ * @returns {Promise}
  */
-export function getEgressPolicyDetail(clusterName, namespace, egressPolicyName) {
+export function getEgressPolicyDetail(clusterName, namespace, policyName) {
   return request({
-    url: `/clusters/${clusterName}/namespaces/${namespace}/egressPolicies/${egressPolicyName}`,
+    url: `/clusters/${clusterName}/namespaces/${namespace}/egressPolicies/${policyName}`,
     method: 'get'
   })
 }
@@ -30,12 +32,13 @@ export function getEgressPolicyDetail(clusterName, namespace, egressPolicyName) 
  * 开启/关闭出口路由
  * @param {string} clusterName - 集群名称
  * @param {string} namespace - 命名空间
- * @param {string} egressPolicyName - 出口路由名称
- * @param {boolean} enable - 是否启用
+ * @param {string} policyName - 路由名称
+ * @param {boolean} enable - 是否开启
+ * @returns {Promise}
  */
-export function switchEgressPolicy(clusterName, namespace, egressPolicyName, enable) {
+export function toggleEgressPolicy(clusterName, namespace, policyName, enable) {
   return request({
-    url: `/clusters/${clusterName}/namespaces/${namespace}/egressPolicies/${egressPolicyName}/switch`,
+    url: `/clusters/${clusterName}/namespaces/${namespace}/egressPolicies/${policyName}/switch`,
     method: 'put',
     params: { enable }
   })
@@ -45,11 +48,14 @@ export function switchEgressPolicy(clusterName, namespace, egressPolicyName, ena
  * 查询跨集群出口网关路由
  * @param {string} clusterName - 集群名称
  * @param {string} egressNodeName - 出口网关名称
+ * @param {string} namespace - 命名空间（可选）
+ * @returns {Promise}
  */
-export function getCrossClusterEgressPolicies(clusterName, egressNodeName) {
+export function getExternalEgressPolicies(clusterName, egressNodeName, namespace = '') {
   return request({
     url: `/clusters/${clusterName}/egressNodes/${egressNodeName}/egressPolicies`,
-    method: 'get'
+    method: 'get',
+    params: namespace ? { namespace } : {}
   })
 }
 
@@ -57,7 +63,8 @@ export function getCrossClusterEgressPolicies(clusterName, egressNodeName) {
  * 创建出口路由
  * @param {string} clusterName - 集群名称
  * @param {string} namespace - 命名空间
- * @param {object} data - 创建数据
+ * @param {Object} data - 路由数据
+ * @returns {Promise}
  */
 export function createEgressPolicy(clusterName, namespace, data) {
   return request({
@@ -71,11 +78,12 @@ export function createEgressPolicy(clusterName, namespace, data) {
  * 删除出口路由
  * @param {string} clusterName - 集群名称
  * @param {string} namespace - 命名空间
- * @param {string} egressPolicyName - 出口路由名称
+ * @param {string} policyName - 路由名称
+ * @returns {Promise}
  */
-export function deleteEgressPolicy(clusterName, namespace, egressPolicyName) {
+export function deleteEgressPolicy(clusterName, namespace, policyName) {
   return request({
-    url: `/clusters/${clusterName}/namespaces/${namespace}/egressPolicies/${egressPolicyName}`,
+    url: `/clusters/${clusterName}/namespaces/${namespace}/egressPolicies/${policyName}`,
     method: 'delete'
   })
 }
@@ -84,13 +92,28 @@ export function deleteEgressPolicy(clusterName, namespace, egressPolicyName) {
  * 编辑出口路由
  * @param {string} clusterName - 集群名称
  * @param {string} namespace - 命名空间
- * @param {string} egressPolicyName - 出口路由名称
- * @param {object} data - 编辑数据
+ * @param {string} policyName - 路由名称
+ * @param {Object} data - 路由数据
+ * @returns {Promise}
  */
-export function updateEgressPolicy(clusterName, namespace, egressPolicyName, data) {
+export function updateEgressPolicy(clusterName, namespace, policyName, data) {
   return request({
-    url: `/clusters/${clusterName}/namespaces/${namespace}/egressPolicies/${egressPolicyName}`,
+    url: `/clusters/${clusterName}/namespaces/${namespace}/egressPolicies/${policyName}`,
     method: 'put',
     data
+  })
+}
+
+/**
+ * 获取 Pod 对象列表
+ * @param {string} clusterName - 集群名称
+ * @param {Array} targets - 目标选择器数组
+ * @returns {Promise}
+ */
+export function getPods(clusterName, targets) {
+  return request({
+    url: `/clusters/${clusterName}/pods`,
+    method: 'post',
+    data: targets
   })
 }

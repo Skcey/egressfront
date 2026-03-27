@@ -15,19 +15,19 @@
       text-color="#303133"
       active-text-color="#409EFF"
     >
-      <el-menu-item index="/node" @click="handleMenuClick('/node')">
+      <el-menu-item index="node" @click="handleMenuClick('NodeInfo')">
         <el-icon><Menu /></el-icon>
         <span>节点信息</span>
       </el-menu-item>
-      <el-menu-item index="/egress" @click="handleMenuClick('/egress')">
+      <el-menu-item index="egress" @click="handleMenuClick('Egress')">
         <el-icon><Menu /></el-icon>
         <span>出口网关</span>
       </el-menu-item>
-      <el-menu-item index="/egress-mapping" @click="handleMenuClick('/egress-mapping')">
+      <el-menu-item index="egress-mapping" @click="handleMenuClick('EgressMapping')">
         <el-icon><Menu /></el-icon>
         <span>出口网关映射</span>
       </el-menu-item>
-      <el-menu-item index="/egress-route" @click="handleMenuClick('/egress-route')">
+      <el-menu-item index="egress-route" @click="handleMenuClick('EgressRoute')">
         <el-icon><Menu /></el-icon>
         <span>出口网关路由</span>
       </el-menu-item>
@@ -51,12 +51,31 @@ const router = useRouter()
 
 const isCollapsed = ref(false)
 
+// 根据路由名称映射菜单索引
+const routeNameToMenuIndex = {
+  'NodeInfo': 'node',
+  'Egress': 'egress',
+  'EgressNodeAdd': 'egress',
+  'EgressNodeDetail': 'egress',
+  'EgressMapping': 'egress-mapping',
+  'EgressMappingAdd': 'egress-mapping',
+  'EgressMappingDetail': 'egress-mapping',
+  'EgressRoute': 'egress-route',
+  'EgressRouteAdd': 'egress-route',
+  'EgressRouteDetail': 'egress-route',
+  'EgressRouteEdit': 'egress-route'
+}
+
 const activeMenu = computed(() => {
-  return route.path
+  return routeNameToMenuIndex[route.name] || 'node'
 })
 
-const handleMenuClick = (path) => {
-  router.push(path)
+const handleMenuClick = (routeName) => {
+  const clusterName = route.params.clusterName || 'default'
+  router.push({
+    name: routeName,
+    params: { clusterName }
+  })
 }
 
 const toggleSidebar = () => {

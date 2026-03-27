@@ -19,6 +19,13 @@ service.interceptors.request.use(
         _t: Date.parse(new Date()) / 1000
       }
     }
+    
+    // 添加认证token
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    
     return config
   },
   error => {
@@ -46,8 +53,29 @@ service.interceptors.response.use(
   },
   error => {
     console.error('err: ' + error)
+    
+    // 处理401未授权错误
+    if (error.response && error.response.status === 401) {
+      ElMessage({
+        message: '登录已过期，请重新登录',
+        type: 'error',
+        duration: 3 * 1000
+      })
+      
+      // 清除本地存储的token和用户信息
+      localStorage.removeItem('token')
+      localStorage.removeItem('userInfo')
+      
+      // 跳转到登录页面
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+      
+      return Promise.reject(new Error('登录已过期'))
+    }
+    
     ElMessage({
-      message: error.message || 'Network Error',
+      message: error.response?.data?.errorMsg || error.message || 'Network Error',
       type: 'error',
       duration: 5 * 1000
     })

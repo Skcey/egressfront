@@ -3,7 +3,9 @@
     <!-- 面包屑导航 -->
     <div class="breadcrumb-wrapper">
       <el-breadcrumb separator="/">
-        <el-breadcrumb-item :to="{ name: 'EgressMapping' }">出口网关映射</el-breadcrumb-item>
+        <el-breadcrumb-item :to="{ name: 'EgressMapping', params: { clusterName: $route.params.clusterName } }">
+          出口网关映射
+        </el-breadcrumb-item>
         <el-breadcrumb-item>新建出口网关映射</el-breadcrumb-item>
       </el-breadcrumb>
     </div>
@@ -36,20 +38,20 @@
               v-model="formData.name"
               placeholder="请输入名称"
               style="width: 320px"
+              clearable
+              maxlength="63"
+              show-word-limit
             />
           </div>
         </div>
         <div class="form-item">
           <div class="form-label required">所属集群：</div>
           <div class="form-value">
-            <el-select
+            <el-input
               v-model="formData.cluster"
-              placeholder="默认集群"
               disabled
               style="width: 320px"
-            >
-              <el-option label="默认集群" value="default" />
-            </el-select>
+            />
           </div>
         </div>
       </div>
@@ -73,9 +75,15 @@
               v-model="formData.gatewayCluster"
               placeholder="选择集群"
               style="width: 320px"
+              :loading="clusterLoading"
+              clearable
             >
-              <el-option label="集群1" value="cluster1" />
-              <el-option label="集群2" value="cluster2" />
+              <el-option
+                v-for="cluster in clusters"
+                :key="cluster.name"
+                :label="cluster.displayName"
+                :value="cluster.name"
+              />
             </el-select>
           </div>
         </div>
@@ -88,7 +96,7 @@
             <div v-if="selectedGateways.length > 0" class="gateway-cards-grid">
               <div
                 v-for="(gateway, index) in selectedGateways"
-                :key="gateway.id"
+                :key="gateway.name"
                 class="gateway-card"
               >
                 <div class="card-header">
@@ -134,118 +142,140 @@
 
     <!-- 底部操作按钮 -->
     <div class="footer-actions">
-      <el-button type="primary" @click="handleSubmit">新建</el-button>
-      <el-button @click="handleCancel">取消</el-button>
+      <el-button type="primary" @click="handleSubmit" :loading="submitting" :disabled="submitting">
+        {{ submitting ? '创建中...' : '新建' }}
+      </el-button>
+      <el-button @click="handleCancel" :disabled="submitting">取消</el-button>
     </div>
 
-    <!-- 添加出口网关抽屉 -->
-    <el-drawer
+      <!-- 添加出口网关抽屉 -->
+    <GatewaySelectorDrawer
       v-model="showGatewayDrawer"
-      title="添加出口网关"
-      direction="rtl"
-      size="941px"
-    >
-      <div class="gateway-selector">
-        <div class="selector-tip">
-          <span>若无出口网关，可前往</span>
-          <el-button type="primary" text @click="goToAddGateway">新建出口网关</el-button>
-          <el-button type="primary" text icon="Refresh" @click="refreshGateways" />
-        </div>
-
-        <el-table
-          ref="multipleTableRef"
-          :data="availableGateways"
-          style="width: 100%"
-          @selection-change="handleSelectionChange"
-        >
-          <el-table-column type="selection" width="48" />
-          <el-table-column property="name" label="出口网关名称" width="180" />
-          <el-table-column property="type" label="类型" width="120" />
-          <el-table-column property="status" label="状态" width="120">
-            <template #default="scope">
-              <el-tag :type="scope.row.status === '正常' ? 'success' : 'danger'" size="small">
-                {{ scope.row.status }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column property="address" label="地址" width="180" />
-        </el-table>
-
-        <div class="pagination-wrapper">
-          <el-pagination
-            v-model:current-page="currentPage"
-            v-model:page-size="pageSize"
-            :page-sizes="[10, 20, 50]"
-            :total="total"
-            layout="total, sizes, prev, pager, next, jumper"
-            @size-change="handleSizeChange"
-            @current-change="handleCurrentChange"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="drawer-footer">
-          <el-button @click="handleDrawerCancel">取消</el-button>
-          <el-button type="primary" @click="handleDrawerConfirm">确认</el-button>
-        </div>
-      </template>
-    </el-drawer>
+      :available-gateways="availableGateways"
+      :loading="gatewayLoading"
+      :show-type-column="true"
+      @confirm="handleDrawerConfirm"
+      @refresh="fetchAvailableGateways"
+      @selection-change="handleSelectionChange"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onMounted, watch, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Menu, CircleCloseFilled, Document } from '@element-plus/icons-vue'
+import { createEgressClass } from '@/api/egressClass'
+import { useClusterStore } from '@/stores/cluster'
+import GatewaySelectorDrawer from '@/components/GatewaySelectorDrawer.vue'
+import { listEgressNode } from '../../api/egressNode'
 
 const router = useRouter()
+const route = useRoute()
+const clusterStore = useClusterStore()
 
 // 表单数据
 const formData = reactive({
   name: '',
-  cluster: 'default',
+  cluster: '',
   gatewayCluster: '',
 })
 
-// 表单校验规则
-const rules = {
-  name: [
-    { required: true, message: '请输入名称', trigger: 'blur' }
-  ],
-  cluster: [
-    { required: true, message: '请选择所属集群', trigger: 'change' }
-  ],
-  gatewayCluster: [
-    { required: true, message: '请选择网关集群', trigger: 'change' }
-  ]
-}
+// 集群列表
+const clusters = ref([])
+const clusterLoading = ref(false)
 
 // 已选择的网关列表
 const selectedGateways = ref([])
 
 // 抽屉相关
 const showGatewayDrawer = ref(false)
-const multipleTableRef = ref(null)
-const currentPage = ref(1)
-const pageSize = ref(10)
-const total = ref(0)
 
 // 可选的网关列表
-const availableGateways = ref([
-  { id: 1, name: '网关1', type: '实体', status: '正常', address: '10.0.0.1' },
-  { id: 2, name: '网关2', type: '实体', status: '正常', address: '10.0.0.2' },
-  { id: 3, name: '网关3', type: '虚拟', status: '异常', address: '10.0.0.3' }
-])
+const availableGateways = ref([])
+const gatewayLoading = ref(false)
 
 const selectedInDrawer = ref([])
+const submitting = ref(false)
 
-const formRef = ref(null)
+// 获取集群列表
+const fetchClusters = async () => {
+  try {
+    clusterLoading.value = true
+    
+    // 确保集群数据已加载
+    await clusterStore.initializeClusters()
+    const allClusters = clusterStore.clusters
+    
+    // 设置当前集群
+    const currentClusterName = route.params.clusterName
+    formData.cluster = clusterStore.getClusterDisplayName(currentClusterName)
+    
+    // 过滤掉当前集群（不能映射自己集群的网关）
+    clusters.value = allClusters.filter(c => c.name !== currentClusterName)
+    
+    console.log('[EgressMapping] 当前集群:', currentClusterName, '可选网关集群:', clusters.value.map(c => c.name))
+  } catch (error) {
+    console.error('获取集群列表失败:', error)
+    ElMessage.error('获取集群列表失败')
+  } finally {
+    clusterLoading.value = false
+  }
+}
+
+// 获取网关集群的网关列表
+const fetchAvailableGateways = async () => {
+  if (!formData.gatewayCluster) return
+  
+  try {
+    gatewayLoading.value = true
+    const response = await listEgressNode(formData.gatewayCluster)
+    const data = response.data || []
+    
+    // 只显示实体网关（type === 0）
+    availableGateways.value = data
+      .filter(item => item.type === 0)
+      .map(item => ({
+        name: item.name,
+        type: item.type === 0 ? '实体' : '映射',
+        status: item.status === 1 ? '正常' : '异常',
+        address: item.egressIpType === 0 ? item.currentNode : item.egressIP
+      }))
+  } catch (error) {
+    console.error('获取网关列表失败:', error)
+    ElMessage.error('获取网关列表失败')
+  } finally {
+    gatewayLoading.value = false
+  }
+}
+
+// 监听网关集群变化
+watch(() => formData.gatewayCluster, () => {
+  // 清空已选择的网关
+  selectedGateways.value = []
+  availableGateways.value = []
+  if (formData.gatewayCluster) {
+    fetchAvailableGateways()
+  }
+})
+
+// 监听路由参数变化
+watch(() => route.params.clusterName, async (newClusterName) => {
+  if (newClusterName) {
+    await fetchClusters()
+  }
+})
+
+// 初始化
+onMounted(async () => {
+  await fetchClusters()
+})
 
 // 返回
 const handleBack = () => {
-  router.back()
+  const clusterName = route.params.clusterName
+  router.push({ name: 'EgressMapping', params: { clusterName } })
 }
 
 // 移除网关
@@ -255,73 +285,88 @@ const removeGateway = (index) => {
 
 // 添加出口网关
 const handleAddGateway = () => {
+  if (!formData.gatewayCluster) {
+    ElMessage.warning('请先选择网关集群')
+    return
+  }
   showGatewayDrawer.value = true
 }
 
-// 前往新建出口网关
-const goToAddGateway = () => {
-  router.push('/egress/add')
-}
-
-// 刷新网关列表
-const refreshGateways = () => {
-  ElMessage.success('刷新成功')
-  // TODO: 实际项目中调用API刷新数据
-}
 
 // 选择变化
 const handleSelectionChange = (selection) => {
   selectedInDrawer.value = selection
 }
 
-// 分页
-const handleSizeChange = (size) => {
-  pageSize.value = size
-  currentPage.value = 1
-}
-
-const handleCurrentChange = (page) => {
-  currentPage.value = page
-}
-
-// 抽屉取消
-const handleDrawerCancel = () => {
-  showGatewayDrawer.value = false
-}
-
 // 抽屉确认
-const handleDrawerConfirm = () => {
-  if (selectedInDrawer.value.length === 0) {
+const handleDrawerConfirm = (newSelectedGateways) => {
+  if (newSelectedGateways.length === 0) {
     ElMessage.warning('请至少选择一个出口网关')
     return
   }
-  selectedGateways.value = [...selectedInDrawer.value]
-  showGatewayDrawer.value = false
+  
+  // 合并已有网关，避免重复
+  const existingIds = selectedGateways.value.map(g => g.name)
+  newSelectedGateways.forEach(gateway => {
+    if (!existingIds.includes(gateway.name)) {
+      selectedGateways.value.push(gateway)
+    }
+  })
+  
   ElMessage.success('添加成功')
 }
 
 // 提交表单
 const handleSubmit = async () => {
-  if (!formData.name) {
+  // 表单验证
+  if (!formData.name || formData.name.trim() === '') {
     ElMessage.warning('请输入名称')
     return
   }
+  
+  // 验证名称格式
+  const namePattern = /^[a-zA-Z0-9_-]+$/
+  if (!namePattern.test(formData.name.trim())) {
+    ElMessage.warning('名称只能包含字母、数字、中划线和下划线')
+    return
+  }
+  
   if (!formData.gatewayCluster) {
     ElMessage.warning('请选择网关集群')
     return
   }
+  
   if (selectedGateways.value.length === 0) {
-    ElMessage.warning('请至少添加一个出口网关节点')
+    ElMessage.warning('请至少添加一个出口网关')
     return
   }
-  // TODO: 提交数据到后端
-  ElMessage.success('创建成功')
-  router.push({ name: 'EgressMapping' })
+  
+  try {
+    submitting.value = true
+    const clusterName = route.params.clusterName
+    
+    const createData = {
+      name: formData.name.trim(),
+      clusterName: clusterName,
+      gatewayClusterName: formData.gatewayCluster,
+      syncEgressNodes: selectedGateways.value.map(g => g.name)
+    }
+    
+    await createEgressClass(clusterName, createData)
+    ElMessage.success('创建成功')
+    router.push({ name: 'EgressMapping', params: { clusterName } })
+  } catch (error) {
+    console.error('创建出口网关映射失败:', error)
+    ElMessage.error('创建出口网关映射失败，请稍后重试')
+  } finally {
+    submitting.value = false
+  }
 }
 
 // 取消
 const handleCancel = () => {
-  router.back()
+  const clusterName = route.params.clusterName
+  router.push({ name: 'EgressMapping', params: { clusterName } })
 }
 </script>
 
@@ -628,6 +673,28 @@ const handleCancel = () => {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
+  }
+
+  .status-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+
+    &.dot-normal {
+      background-color: #67C23A;
+    }
+
+    &.dot-error {
+      background-color: #EA0000;
+    }
   }
 }
 </style>

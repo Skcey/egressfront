@@ -30,6 +30,7 @@
     <div class="table-section">
       <el-table
         :data="filteredData"
+        v-loading="loading"
         style="width: 100%"
         :header-cell-style="{ background: '#F5F7FA', color: '#303133' }"
       >
@@ -44,7 +45,7 @@
         <el-table-column prop="gateway" label="出口网关" min-width="200">
           <template #default="scope">
             <div class="gateway-cell">
-              <span>{{ scope.row.gateway }}</span>
+              <span class="gateway-name" :title="scope.row.gateway">{{ scope.row.gateway }}</span>
               <el-tag 
                 :type="scope.row.gatewayType === '实体' ? 'success' : 'info'"
                 size="small"
@@ -56,11 +57,16 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="scope">
-            <el-tag 
-              :type="scope.row.status === '正常' ? 'success' : 'danger'"
-            >
+            <span class="status-display">
+              <span 
+                class="status-dot" 
+                :class="{ 
+                  'dot-normal': scope.row.status === '正常', 
+                  'dot-error': scope.row.status === '异常'
+                }"
+              ></span>
               {{ scope.row.status }}
-            </el-tag>
+            </span>
           </template>
         </el-table-column>
         <el-table-column prop="enabled" label="路由开关" width="100">
@@ -79,6 +85,9 @@
             </div>
           </template>
         </el-table-column>
+        <template #empty>
+          <el-empty description="暂无数据" />
+        </template>
       </el-table>
 
       <!-- 分页 -->
@@ -87,7 +96,7 @@
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :page-sizes="[10, 20, 50, 100]"
-          :total="total"
+          :total="tableData.length"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
@@ -98,131 +107,156 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { getEgressPolicies, toggleEgressPolicy, deleteEgressPolicy } from '@/api/egressPolicy'
+import { useErrorHandler } from '@/composables/useErrorHandler'
 
 const router = useRouter()
+const route = useRoute()
+const { handleError, handleSuccess, showDeleteConfirm } = useErrorHandler()
 
-// 搜索
 const searchText = ref('')
-
-// 表格数据
-const tableData = ref([
-  {
-    id: 1,
-    name: '出口路由1',
-    namespace: '命名空间1',
-    gateway: '出口网关1',
-    gatewayType: '实体',
-    gatewayStatus: '正常',
-    status: '正常',
-    enabled: true,
-    createTime: '2025/12/4'
-  },
-  {
-    id: 2,
-    name: '出口路由2',
-    namespace: '命名空间2',
-    gateway: '出口网关1',
-    gatewayType: '实体',
-    gatewayStatus: '正常',
-    status: '正常',
-    enabled: true,
-    createTime: '2025/12/4'
-  },
-  {
-    id: 3,
-    name: '出口路由3',
-    namespace: '命名空间2',
-    gateway: '出口网关1',
-    gatewayType: '实体',
-    gatewayStatus: '正常',
-    status: '正常',
-    enabled: true,
-    createTime: '2025/12/4'
-  },
-  {
-    id: 4,
-    name: '出口路由4',
-    namespace: '命名空间1',
-    gateway: '出口网关1',
-    gatewayType: '实体',
-    gatewayStatus: '正常',
-    status: '正常',
-    enabled: true,
-    createTime: '2025/12/4'
-  }
-])
-
-// 分页
+const loading = ref(false)
+const tableData = ref([])
 const currentPage = ref(1)
-const pageSize = ref(100)
-const total = ref(1000)
+const pageSize = ref(10)
+const total = ref(0)
+
+// 格式化时间
+const formatTime = (timeStr) => {
+  if (!timeStr) return '--'
+  const date = new Date(timeStr)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).replace(/\//g, '-')
+}
+
+const formatStatus = (status) => {
+  return status === 1 ? '正常' : '异常'
+}
+
+const formatGatewayType = (type) => {
+  return type === 0 ? '实体' : '映射'
+}
+
+const fetchPolicies = async () => {
+  try {
+    loading.value = true
+    const clusterName = route.params.clusterName
+    const response = await getEgressPolicies(clusterName)
+    const data = response.data
+    
+    // 转换数据格式
+    tableData.value = data.map(item => ({
+      name: item.name,
+      namespace: item.namespace,
+      gateway: item.egressNode?.name || '--',
+      gatewayType: formatGatewayType(item.egressNode?.type),
+      status: formatStatus(item.status),
+      enabled: item.enable,
+      createTime: formatTime(item.createTime),
+      rawData: item // 保存原始数据
+    }))
+    
+    total.value = tableData.value.length
+  } catch (error) {
+    handleError(error, '获取出口路由列表失败，请稍后重试')
+  } finally {
+    loading.value = false
+  }
+}
 
 // 过滤后的数据
 const filteredData = computed(() => {
-  if (!searchText.value) {
-    return tableData.value
+  let data = tableData.value
+  
+  if (searchText.value) {
+    data = data.filter(item =>
+      item.name.toLowerCase().includes(searchText.value.toLowerCase()) ||
+      item.namespace.includes(searchText.value) ||
+      item.gateway.includes(searchText.value)
+    )
   }
-  return tableData.value.filter(item =>
-    item.name.toLowerCase().includes(searchText.value.toLowerCase()) ||
-    item.namespace.includes(searchText.value) ||
-    item.gateway.includes(searchText.value)
-  )
+  
+  // 分页
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return data.slice(start, end)
+})
+
+// 初始化
+onMounted(() => {
+  fetchPolicies()
+})
+
+// 监听集群变化
+watch(() => route.params.clusterName, () => {
+  fetchPolicies()
 })
 
 // 方法
 const handleAdd = () => {
-  router.push({ name: 'EgressRouteAdd' })
-}
-
-const handleViewDetail = (row) => {
-  router.push({
-    name: 'EgressRouteDetail',
-    params: { id: row.id }
+  const clusterName = route.params.clusterName
+  router.push({ 
+    name: 'EgressRouteAdd',
+    params: { clusterName }
   })
 }
 
-const handleSwitchChange = (row) => {
-  // 路由关闭时，状态变为异常
-  if (!row.enabled) {
-    row.status = '异常'
-  } else {
-    row.status = '正常'
-  }
-  console.log('开关状态变更', row)
+const handleViewDetail = (row) => {
+  const clusterName = route.params.clusterName
+  router.push({
+    name: 'EgressRouteDetail',
+    params: { 
+      clusterName,
+      namespace: row.namespace,
+      name: row.name
+    }
+  })
 }
 
-const handleDelete = (row) => {
-  ElMessageBox.confirm(
-    '删除后，路由无法恢复，确认要删除它吗？',
-    '确认删除路由？',
-    {
-      confirmButtonText: '确认',
-      cancelButtonText: '取消',
-      type: 'warning',
-      distinguishCancelAndClose: true
+const handleSwitchChange = async (row) => {
+  try {
+    const clusterName = route.params.clusterName
+    await toggleEgressPolicy(clusterName, row.namespace, row.name, row.enabled)
+    
+    // 更新状态显示：关闭=异常，开启=正常
+    row.status = row.enabled ? '正常' : '异常'
+    
+    handleSuccess(row.enabled ? '路由已开启' : '路由已关闭')
+  } catch (error) {
+    // 恢复开关状态
+    row.enabled = !row.enabled
+    handleError(error, '切换路由开关失败，请稍后重试')
+  }
+}
+
+const handleDelete = async (row) => {
+  try {
+    await showDeleteConfirm(row.name, '路由')
+    
+    const clusterName = route.params.clusterName
+    await deleteEgressPolicy(clusterName, row.namespace, row.name)
+    handleSuccess('删除成功')
+    
+    // 删除成功后刷新列表
+    await fetchPolicies()
+  } catch (error) {
+    if (error === 'cancel') {
+      console.log('取消删除')
+      return
     }
-  )
-    .then(() => {
-      // 确认删除
-      ElMessage.success('删除成功')
-      console.log('删除路由', row)
-      // 这里实际应该调用删除API
-      // 删除成功后从列表中移除
-      const index = tableData.value.findIndex(item => item.id === row.id)
-      if (index > -1) {
-        tableData.value.splice(index, 1)
-      }
-    })
-    .catch((action) => {
-      // 取消删除或关闭对话框
-      if (action === 'cancel') {
-        console.log('取消删除')
-      }
-    })
+    
+    handleError(error, '删除路由失败，请稍后重试', true)
+  }
 }
 
 const handleSizeChange = (size) => {
@@ -316,6 +350,18 @@ const handleCurrentChange = (page) => {
       align-items: center;
       gap: 8px;
 
+      .gateway-name {
+        width: 140px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .el-tag {
+        flex-shrink: 0;
+      }
+
       .status-text {
         font-size: 14px;
         color: #3D3D3D;
@@ -338,6 +384,28 @@ const handleCurrentChange = (page) => {
     display: flex;
     justify-content: center;
     margin-top: 20px;
+  }
+
+  .status-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+
+    &.dot-normal {
+      background-color: #67C23A; // 绿色
+    }
+
+    &.dot-error {
+      background-color: #EA0000; // 红色
+    }
   }
 }
 </style>

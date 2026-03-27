@@ -13,11 +13,11 @@
             <el-dropdown-menu>
               <el-dropdown-item
                 v-for="cluster in clusters"
-                :key="cluster.value"
+                :key="cluster.name"
                 :command="cluster"
-                :class="{ 'is-active': cluster.name === currentCluster }"
+                :class="{ 'is-active': cluster.displayName === currentCluster }"
               >
-                {{ cluster.name }}
+                {{ cluster.displayName }}
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -31,11 +31,7 @@
         </div>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="changePassword">
-              <el-icon><Lock /></el-icon>
-              修改密码
-            </el-dropdown-item>
-            <el-dropdown-item command="logout" divided>
+            <el-dropdown-item command="logout">
               <el-icon><SwitchButton /></el-icon>
               退出登录
             </el-dropdown-item>
@@ -47,40 +43,89 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { Sort, User, Lock, SwitchButton } from '@element-plus/icons-vue'
+import { ref, onMounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { Sort, SwitchButton } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useClusterStore } from '@/stores/cluster'
+import { logout } from '@/api/auth'
+import avatarImage from '@/assets/images/avatar.png'
 
-const avatarUrl = ref('https://image-resource.mastergo.com/119687812066963/121410034174635/7fcccb77aeb367f24823a38389ec7544.png')
+const route = useRoute()
+const router = useRouter()
+const clusterStore = useClusterStore()
 
-// 集群相关
-const currentCluster = ref('默认集群')
-const clusters = ref([
-  { name: '默认集群', value: 'default' },
-  { name: '测试集群', value: 'test' },
-  { name: '生产集群', value: 'prod' }
-])
+const avatarUrl = ref(avatarImage)
 
+// 使用store中的集群信息
+const currentCluster = computed(() => clusterStore.currentClusterDisplayName)
+const clusters = computed(() => clusterStore.clusters)
+
+// 切换集群
 const handleClusterChange = (cluster) => {
-  currentCluster.value = cluster.name
-  // 这里可以添加切换集群的逻辑
+  // 更新store中的当前集群
+  clusterStore.setCurrentCluster(cluster.name)
+  
+  // 获取当前路由名称，保持在相同的页面，只切换集群
+  const currentRouteName = route.name
+  const currentParams = { ...route.params, clusterName: cluster.name }
+  
+  router.push({
+    name: currentRouteName,
+    params: currentParams,
+    query: route.query
+  })
 }
+
+// 页面加载时确保集群列表已加载
+onMounted(async () => {
+  if (clusterStore.clusters.length === 0) {
+    try {
+      await clusterStore.fetchClusters()
+    } catch (error) {
+      console.error('获取集群列表失败:', error)
+      ElMessage.error('获取集群列表失败')
+    }
+  }
+})
 
 // 用户菜单相关
-const handleLogout = () => {
-  // 退出登录逻辑
-  console.log('退出登录')
-}
-
-const handleChangePassword = () => {
-  // 修改密码逻辑
-  console.log('修改密码')
+const handleLogout = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要退出登录吗？',
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    try {
+      // 调用后端登出接口
+      await logout()
+    } catch (error) {
+      console.warn('后端登出失败:', error)
+      // 即使后端登出失败，也要清除前端数据
+    }
+    
+    // 清除本地存储的用户信息
+    localStorage.removeItem('token')
+    localStorage.removeItem('userInfo')
+    
+    ElMessage.success('退出登录成功')
+    
+    // 跳转到登录页面
+    router.push('/login')
+  } catch {
+    // 用户取消退出
+  }
 }
 
 const handleUserCommand = (command) => {
   if (command === 'logout') {
     handleLogout()
-  } else if (command === 'changePassword') {
-    handleChangePassword()
   }
 }
 </script>

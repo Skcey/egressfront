@@ -4,7 +4,7 @@ import request from '@/utils/request'
  * 查询出口网关列表
  * @param {string} clusterName - 集群名称
  */
-export function getEgressNodes(clusterName) {
+export function listEgressNode(clusterName) {
   return request({
     url: `/clusters/${clusterName}/egressNodes`,
     method: 'get'
@@ -17,7 +17,7 @@ export function getEgressNodes(clusterName) {
  * @param {string} egressNodeName - 出口网关名称
  * @param {string} externalClusterName - 外部集群名称
  */
-export function getMappedEgressNodes(clusterName, egressNodeName, externalClusterName) {
+export function listSyncedEgressNodeName(clusterName, egressNodeName, externalClusterName) {
   return request({
     url: `/clusters/${clusterName}/egressNodes/${egressNodeName}/externalClusters/${externalClusterName}/egressNodes`,
     method: 'get'
@@ -29,7 +29,7 @@ export function getMappedEgressNodes(clusterName, egressNodeName, externalCluste
  * @param {string} clusterName - 集群名称
  * @param {string} egressNodeName - 出口网关名称
  */
-export function getEgressNodeDetail(clusterName, egressNodeName) {
+export function getEgressNode(clusterName, egressNodeName) {
   return request({
     url: `/clusters/${clusterName}/egressNodes/${egressNodeName}`,
     method: 'get'
@@ -40,11 +40,15 @@ export function getEgressNodeDetail(clusterName, egressNodeName) {
  * 查询出口网关配置
  * @param {string} clusterName - 集群名称
  * @param {string} egressNodeName - 出口网关名称
+ * @param {boolean} withGatewayNodeStatus - 是否携带网关节点状态
  */
-export function getEgressNodeConfig(clusterName, egressNodeName) {
+export function getEgressNodeConfiguration(clusterName, egressNodeName, withGatewayNodeStatus) {
   return request({
     url: `/clusters/${clusterName}/egressNodes/${egressNodeName}/configurations`,
-    method: 'get'
+    method: 'get',
+    params: {
+      withGatewayNodeStatus: withGatewayNodeStatus
+    }
   })
 }
 
@@ -84,5 +88,17 @@ export function deleteEgressNode(clusterName, egressName) {
   return request({
     url: `/clusters/${clusterName}/egressNodes/${egressName}`,
     method: 'delete'
+  })
+}
+
+
+/**
+ * 获取节点信息
+ * @param {string} clusterName - 集群名称
+ */
+export function getNodes(clusterName) {
+  return request({
+    url: `/clusters/${clusterName}/egressNodes/nodes`,
+    method: 'get'
   })
 }

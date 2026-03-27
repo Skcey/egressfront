@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "../../../../vue-element-admin"
+		},
+		{
+			"path": "../../.."
+		},
+		{
+			"path": "../../../../onlineapprove-fontend"
+		},
+		{
+			"path": "../../../../egress-backend"
+		}
+	],
+	"settings": {}
+}

@@ -16,8 +16,16 @@
         </el-button>
         <div class="gateway-info">
           <h1 class="gateway-name">{{ routeData.name }}</h1>
-          <el-tag v-if="routeData.status === '正常'" type="success" class="type-tag">正常</el-tag>
-          <el-tag v-else type="danger" class="type-tag">异常</el-tag>
+          <span class="status-display">
+            <span 
+              class="status-dot" 
+              :class="{ 
+                'dot-normal': routeData.status === '正常', 
+                'dot-error': routeData.status === '异常'
+              }"
+            ></span>
+            {{ routeData.status }}
+          </span>
         </div>
       </div>
       <div class="title-actions">
@@ -27,7 +35,7 @@
     </div>
 
     <!-- 基本信息 -->
-    <div class="info-section">
+    <div class="info-section" v-loading="loading">
       <div class="section-header">
         <div class="section-title">
           <el-icon class="section-icon"><Menu /></el-icon>
@@ -49,7 +57,16 @@
         </div>
         <div class="info-item">
           <label>状态：</label>
-          <span :class="routeData.status === '正常' ? 'status-normal' : ''">{{ routeData.status }}</span>
+          <span class="status-display">
+            <span 
+              class="status-dot" 
+              :class="{ 
+                'dot-normal': routeData.status === '正常', 
+                'dot-error': routeData.status === '异常'
+              }"
+            ></span>
+            {{ routeData.status }}
+          </span>
         </div>
         <div class="info-item">
           <label>创建时间：</label>
@@ -71,97 +88,49 @@
         <!-- 出口网关 -->
         <div class="config-row">
           <span class="config-label">出口网关：</span>
-          <span class="config-value">{{ routeData.gateway }}</span>
-          <el-tag type="primary" size="small" style="margin-left: 13px">实体</el-tag>
+          <span
+            class="config-value gateway-link"
+            data-gateway-link="true"
+            @click="navigateToEgressNode"
+            :title="`点击查看 ${routeData.gateway} 详情`"
+            style="color: #333;"
+          >
+            {{ routeData.gateway }}
+          </span>
+          <el-tag type="primary" size="small" style="margin-left: 13px">{{ routeData.gatewayType }}</el-tag>
         </div>
 
         <!-- 访问目标地址 -->
         <div class="config-row">
           <span class="config-label">访问目标地址：</span>
-          <el-tag size="small" type="info">{{ routeData.targetAddress }}</el-tag>
-        </div>
+                        <el-tag
+            v-for="(addr, index) in routeData.targetAddress" 
+                          :key="index"
+                          size="small"
+                          type="info"
+            style="margin-right: 8px"
+                        >
+            {{ addr }}
+                        </el-tag>
+                      </div>
 
         <!-- 本集群访问对象/跨集群访问对象 -->
-        <div class="config-tabs">
+        <div class="config-tabs" v-if="routeData.localAccess.hasData || routeData.crossCluster.hasData">
           <el-tabs v-model="activeTab" type="card">
             <!-- 本集群访问对象 -->
-            <el-tab-pane label="本集群访问对象" name="local">
-              <div class="tab-content">
-                <div class="access-section">
-                  <div class="access-row">
-                    <div class="access-item">
-                      <span class="access-label">命名空间选择器</span>
-                      <div class="tag-group">
-                        <el-tag
-                          v-for="(tag, index) in routeData.localAccess.namespaceSelectors"
-                          :key="index"
-                          size="small"
-                          type="info"
-                        >
-                          {{ tag }}
-                        </el-tag>
-                      </div>
-                    </div>
-                    <div class="access-item">
-                      <span class="access-label">Pod</span>
-                      <div class="pod-content">
-                        <span class="pod-type">部分Pod</span>
-                        <div class="tag-group">
-                          <el-tag
-                            v-for="(tag, index) in routeData.localAccess.podSelectors"
-                            :key="index"
-                            size="small"
-                            type="info"
-                          >
-                            {{ tag }}
-                          </el-tag>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <el-link type="primary" @click="handleViewMatch('local')">查看匹配对象</el-link>
-                </div>
-
-                <div class="access-section">
-                  <div class="access-row">
-                    <div class="access-item">
-                      <span class="access-label">命名空间选择器</span>
-                      <div class="tag-group">
-                        <el-tag
-                          v-for="(tag, index) in routeData.localAccess.namespaceSelectors2"
-                          :key="index"
-                          size="small"
-                          type="info"
-                        >
-                          {{ tag }}
-                        </el-tag>
-                      </div>
-                    </div>
-                    <div class="access-item">
-                      <span class="access-label">Pod</span>
-                      <div class="pod-content">
-                        <span class="pod-type">部分Pod</span>
-                        <div class="tag-group">
-                          <el-tag
-                            v-for="(tag, index) in routeData.localAccess.podSelectors2"
-                            :key="index"
-                            size="small"
-                            type="info"
-                          >
-                            {{ tag }}
-                          </el-tag>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <el-link type="primary" @click="handleViewMatch('local')">查看匹配对象</el-link>
-                </div>
-              </div>
+            <el-tab-pane v-if="routeData.localAccess.hasData" label="本集群访问对象" name="local">
+              <AccessObjectsDisplay 
+                :access-objects="routeData.localAccess.objects"
+                :show-title="false"
+                variant="tab"
+                @view-match="handleViewMatch"
+              />
             </el-tab-pane>
 
             <!-- 跨集群访问对象 -->
-            <el-tab-pane label="跨集群访问对象" name="cross">
+            <el-tab-pane v-if="routeData.crossCluster.hasData" label="跨集群访问对象" name="cross">
               <div class="tab-content">
+                <div v-if="routeData.crossCluster.hasData">
                 <div class="cross-cluster-header">
                   <span class="header-text">关联跨集群网关映射实例下出口路由</span>
                 </div>
@@ -171,15 +140,32 @@
                   <div class="route-card">
                     <div class="route-card-header">
                       <div class="route-name-row">
-                        <span class="route-name">{{ routeData.crossCluster.routeName }}</span>
-                        <el-tag type="success" size="small" style="margin-left: 14px">正常</el-tag>
+                        <span
+                          class="route-name cross-route-link"
+                          @click="navigateToCrossRoute"
+                          :title="`点击查看 ${routeData.crossCluster.routeName} 详情`"
+                          style="cursor: pointer; user-select: none;"
+                        >
+                          {{ routeData.crossCluster.routeName }}
+                        </span>
+                        <span class="status-display" style="margin-left: 14px">
+                          <span class="status-dot dot-normal"></span>
+                          正常
+                        </span>
                       </div>
                     </div>
                     <div class="route-card-body">
                       <div class="card-info-item">
                         <span class="info-label">所属出口网关</span>
                         <div class="info-value">
-                          <span>{{ routeData.crossCluster.gateway }}</span>
+                          <span
+                            class="cross-gateway-link"
+                            @click="navigateToCrossGateway"
+                            :title="`点击查看 ${routeData.crossCluster.gateway} 详情`"
+                            style="cursor: pointer; user-select: none;"
+                          >
+                            {{ routeData.crossCluster.gateway }}
+                          </span>
                           <el-tag type="warning" size="small" style="margin-left: 6px">映射</el-tag>
                         </div>
                       </div>
@@ -207,14 +193,18 @@
                   </div>
 
                   <!-- 访问对象列表 -->
-                  <div class="access-section">
+                  <div 
+                    v-for="(obj, index) in routeData.crossCluster.objects" 
+                            :key="index"
+                    class="access-section"
+                  >
                     <div class="access-row">
                       <div class="access-item">
                         <span class="access-label">命名空间选择器</span>
                         <div class="tag-group">
                           <el-tag
-                            v-for="(tag, index) in routeData.crossCluster.namespaceSelectors"
-                            :key="index"
+                            v-for="(tag, tagIndex) in obj.namespaceSelectors"
+                            :key="tagIndex"
                             size="small"
                             type="info"
                           >
@@ -225,11 +215,11 @@
                       <div class="access-item">
                         <span class="access-label">Pod</span>
                         <div class="pod-content">
-                          <span class="pod-type">部分Pod</span>
-                          <div class="tag-group">
+                          <span class="pod-type">{{ obj.podSelectors.includes('全部Pod') ? '全部Pod' : '部分Pod' }}</span>
+                          <div class="tag-group" v-if="!obj.podSelectors.includes('全部Pod')">
                             <el-tag
-                              v-for="(tag, index) in routeData.crossCluster.podSelectors"
-                              :key="index"
+                              v-for="(tag, tagIndex) in obj.podSelectors"
+                              :key="tagIndex"
                               size="small"
                               type="info"
                             >
@@ -239,44 +229,14 @@
                         </div>
                       </div>
                     </div>
-                    <el-link type="primary" @click="handleViewMatch('cross')">查看匹配对象</el-link>
+                    <el-link type="primary" @click="handleViewMatch('cross', index)">查看匹配对象</el-link>
                   </div>
-
-                  <div class="access-section">
-                    <div class="access-row">
-                      <div class="access-item">
-                        <span class="access-label">命名空间选择器</span>
-                        <div class="tag-group">
-                          <el-tag
-                            v-for="(tag, index) in routeData.crossCluster.namespaceSelectors2"
-                            :key="index"
-                            size="small"
-                            type="info"
-                          >
-                            {{ tag }}
-                          </el-tag>
-                        </div>
-                      </div>
-                      <div class="access-item">
-                        <span class="access-label">Pod</span>
-                        <div class="pod-content">
-                          <span class="pod-type">部分Pod</span>
-                          <div class="tag-group">
-                            <el-tag
-                              v-for="(tag, index) in routeData.crossCluster.podSelectors2"
-                              :key="index"
-                              size="small"
-                              type="info"
-                            >
-                              {{ tag }}
-                            </el-tag>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <el-link type="primary" @click="handleViewMatch('cross')">查看匹配对象</el-link>
-                  </div>
+                  
                 </div>
+                </div>
+
+                <!-- 无数据提示 -->
+                <el-empty v-else description="暂无跨集群访问对象" />
               </div>
             </el-tab-pane>
           </el-tabs>
@@ -285,127 +245,390 @@
     </div>
 
     <!-- 查看匹配对象抽屉 -->
-    <el-drawer v-model="matchDrawerVisible" title="查看匹配对象" size="941px">
-      <el-table :data="matchTableData" border style="width: 100%">
-        <el-table-column prop="podName" label="Pod名称" width="180" />
-        <el-table-column prop="namespace" label="命名空间名称" width="180" />
-        <el-table-column prop="status" label="状态">
-          <template #default="{ row }">
-            <el-tag v-if="row.status === '正常'" type="success" size="small">正常</el-tag>
-            <el-tag v-else type="danger" size="small">异常</el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <!-- 分页 -->
-      <div class="pagination-wrapper">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :total="total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
-      </div>
-    </el-drawer>
+    <MatchingPodsDrawer 
+      v-model:visible="matchDrawerVisible"
+      :matching-pods="matchTableData"
+      size="941px"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, Menu } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { getEgressPolicyDetail, toggleEgressPolicy, deleteEgressPolicy, getPods } from '@/api/egressPolicy'
+import { useClusterStore } from '@/stores/cluster'
+import { useErrorHandler } from '@/composables/useErrorHandler'
+import MatchingPodsDrawer from '@/components/MatchingPodsDrawer.vue'
+import AccessObjectsDisplay from '@/components/AccessObjectsDisplay.vue'
 
 const router = useRouter()
 const route = useRoute()
+const clusterStore = useClusterStore()
+const { handleError, handleSuccess, handleWarning, showDeleteConfirm } = useErrorHandler()
 
-// 路由数据
+const loading = ref(false)
+const clusterDisplayNames = ref({})
+
 const routeData = ref({
-  name: '出口网关路由名称',
-  status: '正常',
-  cluster: '集群名称',
-  namespace: '命名空间名称',
-  createTime: '2023-10-22 12:21:34',
-  gateway: '出口网关名称',
-  targetAddress: '192.168.1.1/24 屏蔽 192.168.1.1',
+  name: '',
+  status: '',
+  cluster: '',
+  namespace: '',
+  createTime: '',
+  gateway: '',
+  gatewayType: '',
+  targetAddress: [],
   enabled: true,
   localAccess: {
-    namespaceSelectors: ['key = value', 'key = value', 'key = value', 'key = value'],
-    podSelectors: ['key = value', 'key = value', 'key = value', 'key = value'],
-    namespaceSelectors2: ['key = value', 'key = value', 'key = value', 'key = value'],
-    podSelectors2: ['key = value', 'key = value', 'key = value', 'key = value']
+    hasData: false,
+    objects: []
   },
   crossCluster: {
-    routeName: '出口路由名称',
-    gateway: '出口网关名称',
-    cluster: '集群名称',
-    effectiveAddress: '192.168.1.1/24 屏蔽 192.168.1.1',
-    namespaceSelectors: ['key = value', 'key = value', 'key = value', 'key = value'],
-    podSelectors: ['key = value', 'key = value', 'key = value', 'key = value'],
-    namespaceSelectors2: ['key = value', 'key = value', 'key = value', 'key = value'],
-    podSelectors2: ['key = value', 'key = value', 'key = value', 'key = value']
+    hasData: false,
+    routeName: '',
+    gateway: '',
+    cluster: '',
+    clusterName: '', // 原始集群名称，用于路由跳转
+    namespace: '', // 跨集群路由的命名空间
+    effectiveAddress: [],
+    objects: []
   }
 })
+
+const formatTime = (timeStr) => {
+  if (!timeStr) return '--'
+  const date = new Date(timeStr)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).replace(/\//g, '-')
+}
+
+const formatStatus = (status) => {
+  return status === 1 ? '正常' : '异常'
+}
+
+const formatGatewayType = (type) => {
+  return type === 0 ? '实体' : '映射'
+}
+
+// 格式化 destIPBlocks
+const formatDestIPBlocks = (blocks) => {
+  if (!blocks || blocks.length === 0) return []
+  return blocks.map(block => {
+    let text = block.cidr
+    if (block.except && block.except.length > 0) {
+      text += ' 屏蔽 ' + block.except.join(', ')
+    }
+    return text
+  })
+}
+
+// 格式化标签选择器
+const formatLabels = (labels) => {
+  if (!labels) return []
+  return Object.entries(labels).map(([key, value]) => `${key} = ${value}`)
+}
+
+// 获取集群名称映射
+const fetchClusterNames = async () => {
+  try {
+    // 确保集群数据已加载
+    await clusterStore.initializeClusters()
+    const clusters = clusterStore.clusters
+    const nameMap = {}
+    clusters.forEach(cluster => {
+      nameMap[cluster.name] = cluster.displayName
+    })
+    clusterDisplayNames.value = nameMap
+  } catch (error) {
+    handleError(error, '获取集群信息失败')
+  }
+}
+
+// 获取路由详情
+const fetchPolicyDetail = async () => {
+  try {
+    loading.value = true
+    const clusterName = route.params.clusterName
+    const namespace = route.params.namespace
+    const policyName = route.params.name
+    const response = await getEgressPolicyDetail(clusterName, namespace, policyName)
+    const data = response.data
+    // 处理基本信息
+    routeData.value = {
+      name: data.name,
+      status: formatStatus(data.status),
+      cluster: data.clusterDisplayName,
+      namespace: data.namespace,
+      createTime: formatTime(data.createTime),
+      gateway: data.egressNode?.name || '--',
+      gatewayType: formatGatewayType(data.egressNode?.type || 0),
+      targetAddress: formatDestIPBlocks(data.destIPBlocks),
+      enabled: data.enable,
+      localAccess: {
+        hasData: false,
+        objects: []
+      },
+      crossCluster: {
+        hasData: false,
+        routeName: '',
+        gateway: '',
+        cluster: '',
+        effectiveAddress: [],
+        objects: []
+      }
+    }
+    
+    // 处理本集群访问对象
+    if (data.targets && data.targets.length > 0) {
+      routeData.value.localAccess.hasData = true
+      routeData.value.localAccess.objects = data.targets.map(target => ({
+        namespaceSelectors: formatLabels(target.namespaceMatchLabels),
+        podSelectors: target.podMatchLabels ? formatLabels(target.podMatchLabels) : ['全部Pod']
+      }))
+    }
+    
+    // 处理跨集群访问对象
+    if (data.externalEgressPolicies && data.externalEgressPolicies.length > 0) {
+      const external = data.externalEgressPolicies[0]
+      routeData.value.crossCluster.hasData = true
+      routeData.value.crossCluster.routeName = external.name
+      routeData.value.crossCluster.gateway = external.egressNode?.name || '--'
+      routeData.value.crossCluster.cluster = external.clusterDisplayName
+      routeData.value.crossCluster.clusterName = external.clusterName // 保存原始集群名称用于跳转
+      routeData.value.crossCluster.namespace = external.namespace // 保存跨集群路由的命名空间
+      routeData.value.crossCluster.effectiveAddress = formatDestIPBlocks(external.realIPBlocks || [])
+      
+      if (external.targets && external.targets.length > 0) {
+        routeData.value.crossCluster.objects = external.targets.map(target => ({
+          namespaceSelectors: formatLabels(target.namespaceMatchLabels),
+          podSelectors: target.podMatchLabels ? formatLabels(target.podMatchLabels) : ['全部Pod']
+        }))
+      }
+    }
+    
+    // 设置默认激活的 tab
+    if (routeData.value.localAccess.hasData) {
+      activeTab.value = 'local'
+    } else if (routeData.value.crossCluster.hasData) {
+      activeTab.value = 'cross'
+    }
+
+  } catch (error) {
+    handleError(error, '获取路由详情失败，请稍后重试')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 跳转到跨集群路由详情页
+const navigateToCrossRoute = async () => {
+  const crossClusterName = routeData.value.crossCluster.clusterName
+  const routeNamespace = routeData.value.crossCluster.namespace
+  const routeName = routeData.value.crossCluster.routeName
+  
+  console.log('[Detail] 跳转到跨集群路由:', {
+    clusterName: crossClusterName,
+    namespace: routeNamespace,
+    routeName: routeName
+  })
+
+  try {
+    await router.push({
+      name: 'EgressRouteDetail',
+      params: {
+        clusterName: crossClusterName,
+        namespace: routeNamespace, 
+        name: routeName
+      }
+    })
+  } catch (err) {
+    console.error('[Detail] 路由跳转失败:', err)
+  }
+}
+
+// 跳转到跨集群网关详情页
+const navigateToCrossGateway = async () => {
+  const crossClusterName = routeData.value.crossCluster.clusterName
+  const gatewayName = routeData.value.crossCluster.gateway
+  
+  try {
+    await router.push({
+      name: 'EgressNodeDetail',
+      params: {
+        clusterName: crossClusterName,
+        name: gatewayName
+      }
+    })
+  } catch (err) {
+    console.error('[Detail] 网关跳转失败:', err)
+  }
+}
 
 // 当前激活的标签页
 const activeTab = ref('local')
 
 // 查看匹配对象抽屉
 const matchDrawerVisible = ref(false)
-const matchTableData = ref([
-  { podName: '节点1', namespace: '10.10.103.80', status: '正常' },
-  { podName: '节点2', namespace: '10.10.103.79', status: '正常' },
-  { podName: '节点3', namespace: '10.10.103.78', status: '正常' },
-  { podName: '节点4', namespace: '10.10.103.77', status: '异常' }
-])
+const matchTableData = ref([])
 
-// 分页
-const currentPage = ref(1)
-const pageSize = ref(10)
-const total = ref(1000)
+// 初始化
+onMounted(async () => {
+  await fetchClusterNames()
+  await fetchPolicyDetail()
+})
 
 // 返回
 const goBack = () => {
-  router.back()
+  const clusterName = route.params.clusterName
+  router.push({ 
+    name: 'EgressRoute',
+    params: { clusterName }
+  })
 }
 
 // 开关变更
-const handleSwitchChange = (value) => {
-  routeData.value.status = value ? '正常' : '异常'
+const handleSwitchChange = async (value) => {
+  try {
+    const clusterName = route.params.clusterName
+    const namespace = route.params.namespace
+    const policyName = route.params.name
+    
+    await toggleEgressPolicy(clusterName, namespace, policyName, value)
+    routeData.value.status = value ? '正常' : '异常'
+    handleSuccess(value ? '路由已开启' : '路由已关闭')
+  } catch (error) {
+    // 恢复开关状态
+    routeData.value.enabled = !value
+    handleError(error, '切换路由开关失败，请稍后重试')
+  }
 }
 
 // 删除
-const handleDelete = () => {
-  ElMessageBox.confirm('确定要删除该路由吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    ElMessage.success('删除成功')
-    router.back()
-  }).catch(() => {})
+const handleDelete = async () => {
+  try {
+    await showDeleteConfirm(routeData.value.name, '路由')
+    
+    const clusterName = route.params.clusterName
+    const namespace = route.params.namespace
+    const policyName = route.params.name
+    
+    await deleteEgressPolicy(clusterName, namespace, policyName)
+    handleSuccess('删除成功')
+    
+    router.push({ 
+      name: 'EgressRoute',
+      params: { clusterName }
+    })
+  } catch (error) {
+    if (error === 'cancel') {
+      console.log('取消删除')
+      return
+    }
+    
+    handleError(error, '删除路由失败，请稍后重试', true)
+  }
 }
 
 // 编辑
 const handleEdit = () => {
-  router.push({ name: 'EgressRouteEdit', params: { id: route.params.id } })
+  const clusterName = route.params.clusterName
+  const namespace = route.params.namespace
+  const policyName = route.params.name
+  
+  router.push({ 
+    name: 'EgressRouteEdit',
+    params: { 
+      clusterName,
+      namespace,
+      name: policyName
+    }
+  })
+}
+
+// 跳转到出口网关详情页
+const navigateToEgressNode = () => {
+  if (!routeData.value.gateway) return
+  
+  const clusterName = route.params.clusterName
+  const gatewayName = routeData.value.gateway
+  router.push({
+    name: 'EgressNodeDetail',
+    params: {
+      clusterName,
+      name: gatewayName
+    }
+  })
 }
 
 // 查看匹配对象
-const handleViewMatch = (type) => {
-  matchDrawerVisible.value = true
-}
+const handleViewMatch = async (type, index = null) => {
+  try {
+    const clusterName = route.params.clusterName
+    let targets = []
 
-// 分页变更
-const handleSizeChange = (val) => {
-  pageSize.value = val
-}
+     // 辅助函数：将对象转换为 target 格式
+     const convertObjToTarget = (obj) => {
+      const namespaceMatchLabels = {}
+      obj.namespaceSelectors.forEach(selector => {
+        const [key, value] = selector.split(' = ')
+        namespaceMatchLabels[key.trim()] = value.trim()
+      })
+      
+      let podMatchLabels = null
+      if (obj.podSelectors[0] !== '全部Pod') {
+        podMatchLabels = {}
+        obj.podSelectors.forEach(selector => {
+          const [key, value] = selector.split(' = ')
+          podMatchLabels[key.trim()] = value.trim()
+        })
+      }
+      
+      return {
+        namespaceMatchLabels,
+        podMatchLabels
+      }
+    }
 
-const handleCurrentChange = (val) => {
-  currentPage.value = val
+    // 根据type和index选择对应的targets
+    if (type === 'local' && routeData.value.localAccess.hasData) {
+      const objects = index !== null 
+        ? [routeData.value.localAccess.objects[index]] 
+        : routeData.value.localAccess.objects
+      targets = objects.filter(obj => obj).map(convertObjToTarget)
+    } else if (type === 'cross' && routeData.value.crossCluster.hasData) {
+      const objects = index !== null 
+        ? [routeData.value.crossCluster.objects[index]] 
+        : routeData.value.crossCluster.objects
+      targets = objects.filter(obj => obj).map(convertObjToTarget)
+    }
+    
+    if (targets.length === 0) {
+      handleWarning('没有可用的访问对象')
+      return
+    }
+
+    const response = await getPods(clusterName, targets)
+    const data = response.data || []
+    
+    matchTableData.value = data.map(pod => ({
+      name: pod.name,
+      namespace: pod.namespace,
+      status: pod.status === 1 ? '正常' : '异常'
+    }))
+    
+    matchDrawerVisible.value = true
+  } catch (error) {
+    handleError(error, '获取匹配Pod失败')
+  }
 }
 </script>
 
@@ -536,12 +759,39 @@ const handleCurrentChange = (val) => {
       span {
         font-size: 14px;
         color: #303133;
-
-        &.status-normal {
-          color: #67C23A;
-          font-weight: 500;
-        }
       }
+    }
+  }
+
+  .status-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+
+    &.dot-normal {
+      background-color: #67C23A; // 绿色
+    }
+
+    &.dot-error {
+      background-color: #EA0000; // 红色
+    }
+  }
+  .cross-gateway-link {
+    color: #3D3D3D;
+    cursor: pointer;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: #409EFF !important;
+      text-decoration: underline;
     }
   }
 
@@ -558,6 +808,37 @@ const handleCurrentChange = (val) => {
       .config-value {
         color: #303133;
         margin-left: 4px;
+      }
+
+      :deep(.config-value.gateway-link) {
+          color: #333 !important;
+          cursor: pointer;
+          transition: all 0.3s;
+
+          &:hover {
+            color: #409EFF !important;
+            text-decoration: underline;
+          }
+        }
+      }
+
+      :deep(.config-value.gateway-link) {
+        color: #333 !important;
+        cursor: pointer;
+        transition: all 0.3s;
+
+        &:hover {
+          color: #409EFF !important;
+          text-decoration: underline;
+        }
+      }
+
+      :deep([data-gateway-link]) {
+        color: #333 !important;
+
+        &:hover {
+          color: #409EFF !important;
+        }
       }
     }
 
@@ -608,6 +889,16 @@ const handleCurrentChange = (val) => {
                   font-size: 14px;
                   font-weight: 600;
                   color: #3D3D3D;
+                  transition: color 0.2s ease;
+
+                  &.cross-route-link {
+                    cursor: pointer;
+                    
+                    &:hover {
+                      color: #409EFF !important;
+                      text-decoration: underline;
+                    }
+                  }
                 }
               }
             }
@@ -666,58 +957,15 @@ const handleCurrentChange = (val) => {
               color: #3D3D3D;
             }
           }
-        }
 
-        .access-section {
-          background: #F4F4F5;
-          padding: 4px;
-          margin-bottom: 8px;
-          border-radius: 4px;
-          position: relative;
-
-          .access-row {
-            display: flex;
-            gap: 62px;
-            padding: 0;
-
-            .access-item {
-              flex: 1;
-              display: flex;
-              gap: 4px;
-
-              .access-label {
-                font-size: 14px;
-                color: #3D3D3D;
-                white-space: nowrap;
-                line-height: 26px;
-              }
-
-              .tag-group {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 8px;
-              }
-
-              .pod-content {
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-                flex: 1;
-
-                .pod-type {
-                  font-size: 14px;
-                  color: #3D3D3D;
-                }
-              }
-            }
-          }
-
-          .el-link {
-            position: absolute;
-            right: 4px;
-            top: 4px;
+          .no-data-tip {
+            text-align: center;
+            padding: 32px 0;
+            color: #909399;
+            font-size: 14px;
           }
         }
+
       }
     }
   }
@@ -727,5 +975,5 @@ const handleCurrentChange = (val) => {
     display: flex;
     justify-content: flex-end;
   }
-}
+
 </style>

@@ -13,7 +13,7 @@
       <el-button @click="goBack" type="text" class="back-btn">
         <el-icon :size="20"><ArrowLeft /></el-icon>
       </el-button>
-      <h1 class="page-title">编辑出口网关路由名称</h1>
+        <h1 class="page-title">编辑 {{ originalData?.name || '出口网关路由' }}</h1>
     </div>
 
     <!-- 步骤条 -->
@@ -29,228 +29,27 @@
       <!-- 步骤1: 修改配置 -->
       <div v-if="currentStep === 0" class="step-content">
         <!-- 本集群访问对象 -->
-        <div class="config-section">
-          <div class="section-checkbox">
-            <el-checkbox v-model="formData.enableLocalAccess">
-              配置本集群访问对象
-            </el-checkbox>
-          </div>
+        <AccessObjectsConfig 
+          v-model:enable-local-access="formData.enableLocalAccess"
+          v-model:access-objects="formData.accessObjects"
+        />
 
-          <div v-if="formData.enableLocalAccess" class="config-content-wrapper">
-            <!-- 访问对象列表 -->
-            <div
-              v-for="(accessObj, objIndex) in formData.accessObjects"
-              :key="objIndex"
-              class="access-object-section"
-            >
-              <!-- 删除按钮 -->
-              <el-icon
-                v-if="formData.accessObjects.length > 1"
-                :size="16"
-                class="delete-object-icon"
-                @click="removeAccessObject(objIndex)"
-              >
-                <CircleCloseFilled />
-              </el-icon>
-
-              <!-- 命名空间选择器配置区 -->
-              <div class="namespace-section">
-                <div class="input-row">
-                  <label class="input-label">命名空间选择器</label>
-                  <div class="input-group">
-                    <div class="key-value-inputs">
-                      <div class="input-item">
-                        <span class="input-item-label">Key:</span>
-                        <el-input
-                          v-model="accessObj.namespaceKey"
-                          placeholder="Please input"
-                          size="default"
-                        />
-                      </div>
-                      <div class="input-item">
-                        <span class="input-item-label">Value:</span>
-                        <el-input
-                          v-model="accessObj.namespaceValue"
-                          placeholder="Please input"
-                          size="default"
-                        />
-                      </div>
-                      <el-icon
-                        :size="16"
-                        class="add-icon"
-                        @click="addNamespaceSelector(objIndex)"
-                      >
-                        <CirclePlus />
-                      </el-icon>
-                    </div>
-                    
-                    <!-- 已添加的命名空间选择器标签 -->
-                    <div v-if="accessObj.namespaceSelectors.length > 0" class="tag-list">
-                      <el-tag
-                        v-for="(tag, tagIndex) in accessObj.namespaceSelectors"
-                        :key="tagIndex"
-                        closable
-                        @close="removeNamespaceSelector(objIndex, tagIndex)"
-                        size="small"
-                        type="info"
-                      >
-                        {{ tag }}
-                      </el-tag>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Pod选择器配置区 -->
-              <div class="pod-section">
-                <div class="pod-row">
-                  <label class="input-label">选择Pod</label>
-                  <div class="pod-config">
-                    <!-- Pod类型选择 -->
-                    <el-radio-group
-                      v-model="accessObj.podType"
-                      :disabled="accessObj.namespaceSelectors.length === 0"
-                    >
-                      <el-radio label="all">全部Pod</el-radio>
-                      <el-radio label="partial">部分Pod</el-radio>
-                    </el-radio-group>
-
-                    <!-- 部分Pod的key-value输入 -->
-                    <div
-                      v-if="accessObj.podType === 'partial'"
-                      class="pod-selector-inputs"
-                    >
-                      <div class="key-value-inputs">
-                        <div class="input-item">
-                          <span class="input-item-label">Key:</span>
-                          <el-input
-                            v-model="accessObj.podKey"
-                            placeholder="Please input"
-                            size="default"
-                          />
-                        </div>
-                        <div class="input-item">
-                          <span class="input-item-label">Value:</span>
-                          <el-input
-                            v-model="accessObj.podValue"
-                            placeholder="Please input"
-                            size="default"
-                          />
-                        </div>
-                        <el-icon
-                          :size="16"
-                          class="add-icon"
-                          @click="addPodSelector(objIndex)"
-                        >
-                          <CirclePlus />
-                        </el-icon>
-                      </div>
-
-                      <!-- 已添加的Pod选择器标签 -->
-                      <div
-                        v-if="accessObj.podSelectors.length > 0"
-                        class="tag-list"
-                      >
-                        <el-tag
-                          v-for="(tag, tagIndex) in accessObj.podSelectors"
-                          :key="tagIndex"
-                          closable
-                          @close="removePodSelector(objIndex, tagIndex)"
-                          size="small"
-                          type="info"
-                        >
-                          {{ tag }}
-                        </el-tag>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 添加访问对象按钮 -->
-            <el-button text type="primary" class="add-object-btn" @click="addAccessObject">
-              <el-icon :size="14"><Plus /></el-icon>
-              <span>添加访问对象</span>
-            </el-button>
-          </div>
-        </div>
-
-        <!-- 跨集群访问对象 -->
-        <div class="config-section">
-          <div class="section-checkbox">
-            <el-checkbox v-model="formData.enableCrossCluster">
-              配置跨集群访问对象
-            </el-checkbox>
-          </div>
-
-          <div v-if="formData.enableCrossCluster" class="cross-cluster-wrapper">
-            <!-- 步骤1: 选择映射实例 -->
-            <div class="cross-cluster-step">
-              <div class="step-header">
-                <div class="step-number active">1</div>
-                <span class="step-title">选择 出口网关名称 的映射实例</span>
-              </div>
-              <div class="step-content-area">
-                <div class="select-row">
-                  <el-select
-                    v-model="crossCluster.targetCluster"
-                    placeholder="Element design"
-                    size="default"
-                  >
-                    <el-option label="集群1" value="cluster1" />
-                    <el-option label="集群2" value="cluster2" />
-                  </el-select>
-                  <el-select
-                    v-model="crossCluster.mappingGateway"
-                    placeholder="请先选择目标集群"
-                    :disabled="!crossCluster.targetCluster"
-                    size="default"
-                  >
-                    <el-option label="映射网关1" value="gateway1" />
-                    <el-option label="映射网关2" value="gateway2" />
-                  </el-select>
-                </div>
-                <div class="help-text">
-                  可通过在目标集群中新建出口网关映射，实现配置 出口网关名称 的映射网关实例
-                </div>
-              </div>
-            </div>
-
-            <!-- 步骤2: 关联出口路由 -->
-            <div class="cross-cluster-step">
-              <div class="step-header">
-                <div class="step-number">2</div>
-                <span class="step-title">关联跨集群映射网关的出口路由</span>
-              </div>
-              <div class="step-content-area">
-                <div class="select-row">
-                  <el-select
-                    v-model="crossCluster.namespace"
-                    placeholder="请选择路由所在命名空间"
-                    :disabled="!crossCluster.mappingGateway"
-                    size="default"
-                  >
-                    <el-option label="命名空间1" value="ns1" />
-                    <el-option label="命名空间2" value="ns2" />
-                  </el-select>
-                  <el-select
-                    v-model="crossCluster.route"
-                    placeholder="请先选择命名空间"
-                    :disabled="!crossCluster.namespace"
-                    size="default"
-                  >
-                    <el-option label="路由1" value="route1" />
-                    <el-option label="路由2" value="route2" />
-                  </el-select>
-                </div>
-                <div class="help-text">
-                  可通过在目标集群中新建出口网关映射，实现配置 出口网关名称 的映射网关实例
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- 跨集群访问对象 - 只有实体网关才能配置 -->
+        <CrossClusterConfig 
+          v-model:enable-cross-cluster="formData.enableCrossCluster"
+          v-model:cross-cluster="crossCluster"
+          :is-gateway-mapped="isGatewayMapped"
+          :gateway-name="originalData?.egressNode?.name"
+          :cluster-options="clusterOptions"
+          :mapping-gateway-options="mappingGatewayOptions"
+          :namespace-options="namespaceOptions"
+          :route-options="routeOptions"
+          @target-cluster-change="handleTargetClusterChange"
+          @mapping-gateway-change="handleMappingGatewayChange"
+          @namespace-change="handleNamespaceChange"
+          @navigate-to-create-mapping="navigateToCreateMapping"
+          @navigate-to-create-route="navigateToCreateRoute"
+        />
 
         <!-- 底部按钮 -->
         <div class="footer-actions">
@@ -264,79 +63,22 @@
       <!-- 步骤2: 确认配置 -->
       <div v-if="currentStep === 1" class="step-content">
         <!-- 本集群访问对象 -->
-        <div v-if="formData.enableLocalAccess" class="config-section">
-          <div class="section-title-row">
-            <span class="section-title-text">本集群访问对象</span>
-          </div>
-
-          <div class="confirm-content-wrapper">
-            <div
-              v-for="(accessObj, objIndex) in formData.accessObjects"
-              :key="objIndex"
-              class="confirm-card"
-            >
-              <div class="confirm-row">
-                <div class="confirm-item">
-                  <label>命名空间选择器</label>
-                  <div class="tag-list">
-                    <el-tag
-                      v-for="(tag, tagIndex) in accessObj.namespaceSelectors"
-                      :key="tagIndex"
-                      size="small"
-                      type="info"
-                    >
-                      {{ tag }}
-                    </el-tag>
-                  </div>
-                </div>
-                <div class="confirm-item">
-                  <label>Pod</label>
-                  <div class="pod-content">
-                    <span v-if="accessObj.podType === 'all'" class="pod-type-text">全部Pod</span>
-                    <template v-else>
-                      <span class="pod-type-text">部分Pod</span>
-                      <div class="tag-list">
-                        <el-tag
-                          v-for="(tag, tagIndex) in accessObj.podSelectors"
-                          :key="tagIndex"
-                          size="small"
-                          type="info"
-                        >
-                          {{ tag }}
-                        </el-tag>
-                      </div>
-                    </template>
-                  </div>
-                </div>
-              </div>
-              <el-link type="primary" class="view-link" @click="handleViewMatch">查看匹配对象</el-link>
-            </div>
-          </div>
-        </div>
+        <AccessObjectsDisplay 
+          v-if="formData.enableLocalAccess"
+          :access-objects="formData.accessObjects"
+          title="本集群访问对象"
+          variant="detail"
+          @view-match="handleViewMatch"
+        />
 
         <!-- 跨集群访问对象 -->
-        <div v-if="formData.enableCrossCluster" class="config-section">
-          <div class="section-title-row">
-            <span class="section-title-text">跨集群访问对象</span>
-          </div>
-
-          <div class="confirm-content-wrapper">
-            <div class="confirm-card">
-              <div class="cross-cluster-row">
-                <div class="cross-cluster-item">
-                  <span class="info-label">
-                    出口网关1 的映射网关 {{ crossCluster.targetCluster }} / {{ crossCluster.mappingGateway }}
-                  </span>
-                </div>
-                <div class="cross-cluster-item">
-                  <span class="info-label">
-                    关联跨集群映射网关的出口路由 {{ crossCluster.namespace }} / {{ crossCluster.route }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <CrossClusterDisplay 
+          v-if="formData.enableCrossCluster"
+          :cross-cluster="crossCluster"
+          :gateway-name="originalData?.egressNode?.name"
+          title="跨集群访问对象"
+          variant="detail"
+        />
 
         <!-- 底部按钮 -->
         <div class="footer-actions">
@@ -348,45 +90,46 @@
     </div>
 
     <!-- 查看匹配对象抽屉 -->
-    <el-drawer v-model="matchDrawerVisible" title="查看匹配对象" size="941px">
-      <el-table :data="matchTableData" border style="width: 100%">
-        <el-table-column prop="podName" label="Pod名称" width="180" />
-        <el-table-column prop="namespace" label="命名空间名称" width="180" />
-        <el-table-column prop="status" label="状态">
-          <template #default="{ row }">
-            <el-tag v-if="row.status === '正常'" type="success" size="small">正常</el-tag>
-            <el-tag v-else type="danger" size="small">异常</el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <!-- 分页 -->
-      <div class="pagination-wrapper">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :total="total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
-      </div>
-    </el-drawer>
+    <MatchingPodsDrawer 
+      v-model:visible="matchDrawerVisible"
+      :matching-pods="matchTableData"
+      size="941px"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted} from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, CirclePlus, CircleCloseFilled, Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-
+import { getEgressPolicyDetail, updateEgressPolicy, getPods, getExternalEgressPolicies } from '@/api/egressPolicy'
+import { listSyncedEgressNodeName } from '@/api/egressNode'
+import { getNamespaces } from '@/api/namespace'
+import { useClusterStore } from '@/stores/cluster'
+import { useFormValidation } from '@/composables/useFormValidation'
+import { useErrorHandler } from '@/composables/useErrorHandler'
+import AccessObjectsConfig from '@/components/AccessObjectsConfig.vue'
+import CrossClusterConfig from '@/components/CrossClusterConfig.vue'
+import MatchingPodsDrawer from '@/components/MatchingPodsDrawer.vue'
+import AccessObjectsDisplay from '@/components/AccessObjectsDisplay.vue'
+import CrossClusterDisplay from '@/components/CrossClusterDisplay.vue'
+  
 const router = useRouter()
 const route = useRoute()
+const clusterStore = useClusterStore()
+const { handleError, handleSuccess } = useErrorHandler()
+  
+const loading = ref(false)
+const submitting = ref(false)
+const clusterDisplayNames = ref({})
+const originalData = ref({})
 
 // 当前步骤
 const currentStep = ref(0)
+
+// 使用表单验证逻辑
+const { canGoNext, buildTargetsData, buildExternalEgressPolicies } = useFormValidation(formData)
 
 // 表单数据
 const formData = ref({
@@ -397,7 +140,7 @@ const formData = ref({
       namespaceKey: '',
       namespaceValue: '',
       namespaceSelectors: [],
-      podType: 'all', // 'all' 或 'partial'
+      podType: 'all',
       podKey: '',
       podValue: '',
       podSelectors: []
@@ -405,122 +148,276 @@ const formData = ref({
   ]
 })
 
-// 跨集群配置
-const crossCluster = ref({
-  targetCluster: '',
-  mappingGateway: '',
-  namespace: '',
-  route: ''
+  // 跨集群配置
+  const crossCluster = ref({
+    targetCluster: '',
+    mappingGateway: '',
+    namespace: '',
+    route: ''
+  })
+  
+  // 跨集群选项数据
+  const clusterOptions = ref([])
+  const mappingGatewayOptions = ref([])
+  const namespaceOptions = ref([])
+  const routeOptions = ref([])
+
+// 计算当前网关是否为映射网关
+const isGatewayMapped = computed(() => {
+  return originalData.value?.egressNode?.type === 1
 })
 
 // 查看匹配对象抽屉
 const matchDrawerVisible = ref(false)
-const matchTableData = ref([
-  { podName: 'pod-1', namespace: 'default', status: '正常' },
-  { podName: 'pod-2', namespace: 'default', status: '正常' },
-  { podName: 'pod-3', namespace: 'kube-system', status: '正常' },
-  { podName: 'pod-4', namespace: 'kube-system', status: '异常' }
-])
+const matchTableData = ref([])
 
-// 分页
-const currentPage = ref(1)
-const pageSize = ref(10)
-const total = ref(1000)
-
-// 是否可以进入下一步
-const canGoNext = computed(() => {
-  // 至少勾选一个配置项
-  if (!formData.value.enableLocalAccess && !formData.value.enableCrossCluster) {
-    return false
-  }
-
-  // 如果勾选了本集群访问对象
-  if (formData.value.enableLocalAccess) {
-    // 每个访问对象都要验证
-    for (const obj of formData.value.accessObjects) {
-      // 命名空间选择器至少要有一个
-      if (obj.namespaceSelectors.length === 0) {
-        return false
-      }
-      // 如果选择了部分Pod，Pod选择器至少要有一个
-      if (obj.podType === 'partial' && obj.podSelectors.length === 0) {
-        return false
-      }
-    }
-  }
-
-  // 如果勾选了跨集群访问对象
-  if (formData.value.enableCrossCluster) {
-    // 所有下拉框都要选择
-    if (!crossCluster.value.targetCluster || !crossCluster.value.mappingGateway ||
-        !crossCluster.value.namespace || !crossCluster.value.route) {
-      return false
-    }
-  }
-
-  return true
+// 表单验证逻辑已移至 useFormValidation composable
+  
+// 初始化 - 获取路由详情
+onMounted(async () => {
+  await fetchClusterNames()
+  await fetchPolicyDetail()
 })
 
-// 返回
-const goBack = () => {
-  router.back()
+// 获取集群名称映射
+const fetchClusterNames = async () => {
+  try {
+    // 确保集群数据已加载
+    await clusterStore.initializeClusters()
+    const clusters = clusterStore.clusters
+    const nameMap = {}
+    clusters.forEach(cluster => {
+      nameMap[cluster.name] = cluster.displayName
+    })
+    clusterDisplayNames.value = nameMap
+  } catch (error) {
+    handleError(error, '获取集群信息失败')
+  }
 }
 
-// 添加访问对象
-const addAccessObject = () => {
-  formData.value.accessObjects.push({
-    namespaceKey: '',
-    namespaceValue: '',
-    namespaceSelectors: [],
-    podType: 'all',
-    podKey: '',
-    podValue: '',
-    podSelectors: []
+  // 获取路由详情并填充表单
+const fetchPolicyDetail = async () => {
+  try {
+    loading.value = true
+    const clusterName = route.params.clusterName
+    const namespace = route.params.namespace
+    const policyName = route.params.name
+    
+    const response = await getEgressPolicyDetail(clusterName, namespace, policyName)
+    const data = response.data
+    
+    // 保存原始数据
+    originalData.value = data
+    // 填充表单数据
+    formData.value.enableLocalAccess = !!(data.targets && data.targets.length > 0)
+    // 如果是映射网关，不允许配置跨集群访问对象
+    if (data.egressNode?.type === 1) {
+      formData.value.enableCrossCluster = false
+    } else {
+      formData.value.enableCrossCluster = !!(data.externalEgressPolicies && data.externalEgressPolicies.length > 0)
+    }
+    
+    // 填充本集群访问对象
+    if (data.targets && data.targets.length > 0) {
+      formData.value.accessObjects = data.targets.map(target => {
+        const namespaceSelectors = Object.entries(target.namespaceMatchLabels || {}).map(([key, value]) => ({
+          key,
+          value
+        }))
+        
+        let podSelectors = []
+        let podType = 'all'
+        if (target.podMatchLabels) {
+          podType = 'partial'
+          podSelectors = Object.entries(target.podMatchLabels).map(([key, value]) => ({
+            key,
+            value
+          }))
+        }
+        
+        return {
+          namespaceKey: '',
+          namespaceValue: '',
+          namespaceSelectors,
+          podType,
+          podKey: '',
+          podValue: '',
+          podSelectors
+        }
+      })
+    }
+    
+    // 填充跨集群访问对象
+    if (data.externalEgressPolicies && data.externalEgressPolicies.length > 0) {
+      const external = data.externalEgressPolicies[0]
+      crossCluster.value = {
+        targetCluster: external.clusterName,
+        mappingGateway: external.egressNode?.name || '',
+        namespace: external.namespace,
+        route: external.name
+      }
+    }
+    
+  } catch (error) {
+    handleError(error, '获取路由详情失败，请稍后重试')
+  } finally {
+    loading.value = false
+  }
+}
+
+const goBack = () => {
+  const clusterName = route.params.clusterName
+  const namespace = route.params.namespace
+  const policyName = route.params.name
+  
+  router.push({
+    name: 'EgressRouteDetail',
+    params: {
+      clusterName,
+      namespace,
+      name: policyName
+    }
+  })
+}
+  
+// 处理目标集群选择变化
+const handleTargetClusterChange = async (targetClusterName) => {
+  // 清空后续选项
+  crossCluster.value.mappingGateway = ''
+  crossCluster.value.namespace = ''
+  crossCluster.value.route = ''
+  mappingGatewayOptions.value = []
+  namespaceOptions.value = []
+  routeOptions.value = []
+
+  if (!targetClusterName) {
+    return
+  }
+
+  try {
+    // 使用已有的原始数据，避免重复API调用
+    const currentGatewayName = originalData.value.egressNode?.name
+    const currentCluster = route.params.clusterName
+
+    let sourceCluster = ''
+    let sourceGatewayName = ''
+
+    if (originalData.value.egressNode?.type === 0) { // 当前路由使用实体网关
+      sourceCluster = currentCluster
+      sourceGatewayName = currentGatewayName
+    } else if (originalData.value.egressNode?.type === 1) { // 当前路由使用映射网关
+      // 映射网关命名规则：源集群-源网关
+      const parts = currentGatewayName.split('-')
+      sourceCluster = parts[0]
+      sourceGatewayName = parts.slice(1).join('-')
+    } else {
+      console.warn('无法识别当前路由的网关类型或名称:', originalData.value.egressNode)
+      return
+    }
+
+    console.log(`[Edit] 获取映射网关:`, {
+      sourceCluster,
+      sourceGateway: sourceGatewayName,
+      targetCluster: targetClusterName
+    })
+
+    // 并行获取映射网关列表和命名空间列表
+    const [mappingResponse, namespaceResponse] = await Promise.all([
+      listSyncedEgressNodeName(sourceCluster, sourceGatewayName, targetClusterName),
+      getNamespaces(targetClusterName)
+    ])
+
+    // 设置映射网关选项
+    const mappedGatewayNames = mappingResponse.data || []
+    mappingGatewayOptions.value = mappedGatewayNames.map(name => ({
+      label: name,
+      value: name
+    }))
+
+    // 设置命名空间选项
+    const namespaces = namespaceResponse.data || []
+    namespaceOptions.value = namespaces.map(ns => ({
+      label: ns.name,
+      value: ns.name
+    }))
+
+    console.log(`[Edit] 目标集群 "${targetClusterName}" 的映射网关选项:`, mappingGatewayOptions.value)
+    console.log(`[Edit] 目标集群 "${targetClusterName}" 的命名空间选项:`, namespaceOptions.value)
+
+  } catch (error) {
+    console.error('获取选项失败:', error)
+    mappingGatewayOptions.value = []
+    namespaceOptions.value = []
+  }
+}
+  
+// 处理映射网关选择变化
+const handleMappingGatewayChange = (gatewayName) => {
+  console.log('[Edit] 映射网关变化:', gatewayName)
+  
+  // 重置后续选项
+  crossCluster.value.namespace = ''
+  crossCluster.value.route = ''
+  routeOptions.value = []
+  
+  // 命名空间列表已经在选择目标集群时获取了，这里不需要重新获取
+  console.log('[Edit] 可用命名空间:', namespaceOptions.value)
+}
+  
+// 处理命名空间选择变化
+const handleNamespaceChange = async (namespace) => {
+  crossCluster.value.route = ''
+
+  if (!namespace) {
+    routeOptions.value = []
+    return
+  }
+
+  try {
+    const targetCluster = crossCluster.value.targetCluster
+    const gatewayName = crossCluster.value.mappingGateway
+
+    // 获取该命名空间下使用该映射网关的路由
+    const response = await getExternalEgressPolicies(targetCluster, gatewayName)
+    const policies = response.data || []
+
+    // 筛选指定命名空间的路由
+    const filteredPolicies = policies.filter(policy => policy.namespace === namespace)
+
+    routeOptions.value = filteredPolicies.map(policy => ({
+      label: policy.name,
+      value: policy.name
+    }))
+
+    console.log('[Edit] 路由选项:', routeOptions.value)
+  } catch (error) {
+    console.error('获取路由选项失败:', error)
+    routeOptions.value = []
+  }
+}
+  
+  
+// 跳转到新建出口网关映射页面
+const navigateToCreateMapping = (targetCluster) => {
+  router.push({
+    name: 'EgressMappingAdd',
+    params: {
+      clusterName: targetCluster
+    }
   })
 }
 
-// 删除访问对象
-const removeAccessObject = (objIndex) => {
-  if (formData.value.accessObjects.length > 1) {
-    formData.value.accessObjects.splice(objIndex, 1)
-  }
+// 跳转到新建出口路由页面
+const navigateToCreateRoute = (targetCluster) => {
+  router.push({
+    name: 'EgressRouteAdd',
+    params: {
+      clusterName: targetCluster
+    }
+  })
 }
 
-// 添加命名空间选择器
-const addNamespaceSelector = (objIndex) => {
-  const obj = formData.value.accessObjects[objIndex]
-  if (!obj.namespaceKey || !obj.namespaceValue) {
-    ElMessage.warning('请输入Key和Value')
-    return
-  }
-  const selector = `${obj.namespaceKey} = ${obj.namespaceValue}`
-  obj.namespaceSelectors.push(selector)
-  obj.namespaceKey = ''
-  obj.namespaceValue = ''
-}
-
-// 删除命名空间选择器
-const removeNamespaceSelector = (objIndex, tagIndex) => {
-  formData.value.accessObjects[objIndex].namespaceSelectors.splice(tagIndex, 1)
-}
-
-// 添加Pod选择器
-const addPodSelector = (objIndex) => {
-  const obj = formData.value.accessObjects[objIndex]
-  if (!obj.podKey || !obj.podValue) {
-    ElMessage.warning('请输入Key和Value')
-    return
-  }
-  const selector = `${obj.podKey} = ${obj.podValue}`
-  obj.podSelectors.push(selector)
-  obj.podKey = ''
-  obj.podValue = ''
-}
-
-// 删除Pod选择器
-const removePodSelector = (objIndex, tagIndex) => {
-  formData.value.accessObjects[objIndex].podSelectors.splice(tagIndex, 1)
-}
+// 访问对象操作方法已移至 AccessObjectsConfig 组件中
 
 // 下一步
 const nextStep = () => {
@@ -536,30 +433,89 @@ const prevStep = () => {
   currentStep.value = 0
 }
 
-// 取消
-const handleCancel = () => {
-  router.back()
-}
-
-// 提交
-const handleSubmit = () => {
-  ElMessage.success('修改成功')
-  router.push({ name: 'EgressRouteDetail', params: { id: route.params.id } })
-}
-
-// 查看匹配对象
-const handleViewMatch = () => {
-  matchDrawerVisible.value = true
-}
-
-// 分页变更
-const handleSizeChange = (val) => {
-  pageSize.value = val
-}
-
-const handleCurrentChange = (val) => {
-  currentPage.value = val
-}
+  // 取消
+  const handleCancel = () => {
+    const clusterName = route.params.clusterName || 'default'
+    const namespace = route.params.namespace
+    const policyName = route.params.name
+    
+    router.push({
+      name: 'EgressRouteDetail',
+      params: {
+        clusterName,
+        namespace,
+        name: policyName
+      }
+    })
+  }
+  
+  // 提交
+  const handleSubmit = async () => {
+    try {
+      submitting.value = true
+      const clusterName = route.params.clusterName
+      const namespace = route.params.namespace
+      const policyName = route.params.name
+      
+      // 使用 useFormValidation 构建数据
+      const targets = formData.value.enableLocalAccess ? buildTargetsData(formData.value.accessObjects) : null
+      const externalEgressPolicies = formData.value.enableCrossCluster ? buildExternalEgressPolicies(crossCluster.value) : []
+      
+      const updateData = {
+        name: originalData.value.name,
+        clusterName: originalData.value.clusterName,
+        namespace: originalData.value.namespace,
+        enable: originalData.value.enable,
+        egressNode: originalData.value.egressNode,
+        destIPBlocks: originalData.value.destIPBlocks,
+        targets,
+        externalEgressPolicies
+      }
+      
+      await updateEgressPolicy(clusterName, namespace, policyName, updateData)
+      handleSuccess('修改成功')
+      
+      router.push({
+        name: 'EgressRouteDetail',
+        params: {
+          clusterName,
+          namespace,
+          name: policyName
+        }
+      })
+    } catch (error) {
+      handleError(error, '修改路由失败，请稍后重试')
+    } finally {
+      submitting.value = false
+    }
+  }
+  
+  // 查看匹配对象
+  const handleViewMatch = async () => {
+    try {
+      const clusterName = route.params.clusterName
+      
+      // 使用 useFormValidation 构建查询参数
+      const targets = buildTargetsData(formData.value.accessObjects)
+      if (!targets) {
+        ElMessage.warning('请先配置访问对象')
+        return
+      }
+      
+      const response = await getPods(clusterName, targets)
+      const data = response.data || []
+      
+      matchTableData.value = data.map(pod => ({
+        name: pod.name,
+        namespace: pod.namespace,
+        status: pod.status === 1 ? '正常' : '异常'
+      }))
+      
+      matchDrawerVisible.value = true
+    } catch (error) {
+      handleError(error, '获取匹配Pod失败')
+    }
+  }
 </script>
 
 <style lang="scss" scoped>
@@ -799,9 +755,13 @@ const handleCurrentChange = (val) => {
             }
 
             .pod-selector-inputs {
-              display: flex;
-              align-items: center;
-              gap: 23px;
+              margin-top: 16px;
+              
+              .input-group {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+              }
             }
           }
 
@@ -825,7 +785,18 @@ const handleCurrentChange = (val) => {
             }
           }
         }
-
+  
+  .clickable-link {
+    color: #409EFF;
+    cursor: pointer;
+    text-decoration: underline;
+    transition: all 0.3s;
+  
+    &:hover {
+      color: #66b1ff;
+    }
+  }
+  
         .cross-cluster-wrapper {
           padding: 17px 0;
 
@@ -883,77 +854,6 @@ const handleCurrentChange = (val) => {
           }
         }
 
-        .confirm-content-wrapper {
-          .confirm-card {
-            background-color: #F4F4F5;
-            padding: 4px;
-            position: relative;
-            border-radius: 4px;
-            margin-bottom: 8px;
-
-            &:last-child {
-              margin-bottom: 0;
-            }
-
-            .confirm-row {
-              display: flex;
-              gap: 62px;
-
-              .confirm-item {
-                flex: 1;
-                display: flex;
-                gap: 12px;
-                align-items: center;
-
-                label {
-                  font-size: 14px;
-                  color: #3D3D3D;
-                  white-space: nowrap;
-                  line-height: 26px;
-                }
-
-                .tag-list {
-                  display: flex;
-                  flex-wrap: wrap;
-                  gap: 8px;
-                  align-items: center;
-                }
-
-                .pod-content {
-                  display: flex;
-                  flex-wrap: wrap;
-                  gap: 8px;
-                  align-items: center;
-
-                  .pod-type-text {
-                    font-size: 14px;
-                    color: #3D3D3D;
-                    line-height: 26px;
-                  }
-                }
-              }
-            }
-
-            .cross-cluster-row {
-              display: flex;
-              gap: 120px;
-
-              .cross-cluster-item {
-                .info-label {
-                  font-size: 14px;
-                  color: #3D3D3D;
-                  line-height: 26px;
-                }
-              }
-            }
-
-            .view-link {
-              position: absolute;
-              right: 4px;
-              top: 4px;
-            }
-          }
-        }
 
       }
 

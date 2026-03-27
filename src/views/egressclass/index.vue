@@ -2,7 +2,9 @@
   <div class="egress-class-page">
     <div class="breadcrumb-wrapper">
       <el-breadcrumb separator="/">
-        <el-breadcrumb-item>出口网关映射</el-breadcrumb-item>
+        <el-breadcrumb-item :to="{ name: 'EgressMapping', params: { clusterName: $route.params.clusterName || 'default' } }">
+          出口网关映射
+        </el-breadcrumb-item>
       </el-breadcrumb>
     </div>
     
@@ -28,6 +30,7 @@
     <div class="table-section">
       <el-table
         :data="paginatedData"
+        v-loading="loading"
         style="width: 100%"
         :header-cell-style="{ background: '#F5F7FA', color: '#303133' }"
       >
@@ -46,10 +49,13 @@
             <el-button text type="danger" @click="handleDelete(scope.row)">删除</el-button>
           </template>
         </el-table-column>
+        <template #empty>
+          <el-empty description="暂无数据" />
+        </template>
       </el-table>
 
       <!-- 分页 -->
-      <div class="pagination-wrapper">
+      <div class="pagination-wrapper" v-if="total > 0">
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
@@ -65,47 +71,18 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { Plus, Search } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessageBox, ElMessage } from 'element-plus'
+import { getEgressClasses, deleteEgressClass } from '@/api/egressClass'
 
 const router = useRouter()
+const route = useRoute()
 
-// 搜索
 const searchText = ref('')
-
-// 表格数据
-const tableData = ref([
-  {
-    id: 1,
-    name: 'egressclass1',
-    cluster: '集群1',
-    gatewayCount: 3,
-    createTime: '2025-01-01 00:00:00'
-  },
-  {
-    id: 2,
-    name: 'egressNode2',
-    cluster: '集群2',
-    gatewayCount: 3,
-    createTime: '2025-01-01 00:00:01'
-  },
-  {
-    id: 3,
-    name: 'ec2-egressNode3',
-    cluster: '集群3',
-    gatewayCount: 3,
-    createTime: '2025-01-01 00:00:01'
-  },
-  {
-    id: 4,
-    name: 'egressNode4',
-    cluster: '集群4',
-    gatewayCount: 3,
-    createTime: '2025-01-01 00:00:01'
-  }
-])
+const tableData = ref([])
+const loading = ref(false)
 
 // 分页
 const currentPage = ref(1)
@@ -128,23 +105,69 @@ const filteredData = computed(() => {
   )
 })
 
+// 格式化时间
+const formatTime = (timeStr) => {
+  if (!timeStr) return '--'
+  const date = new Date(timeStr)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).replace(/\//g, '-')
+}
+
+// 获取出口网关映射列表
+const fetchEgressClassList = async () => {
+  try {
+    loading.value = true
+    const clusterName = route.params.clusterName
+    const response = await getEgressClasses(clusterName)
+    const data = response.data || []
+    
+    tableData.value = data.map(item => ({
+      name: item.name,
+      cluster: item.gatewayClusterDisplayName,
+      gatewayCount: item.syncEgressNodes.length,
+      createTime: formatTime(item.createTime)
+    }))
+  } catch (error) {
+    console.error('获取出口网关映射列表失败:', error)
+    ElMessage.error('获取出口网关映射列表失败，请稍后重试')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 初始化
+onMounted(async () => {
+  await fetchEgressClassList()
+})
+
+// 监听路由参数变化
+watch(() => route.params.clusterName, async (newClusterName, oldClusterName) => {
+  if (newClusterName && newClusterName !== oldClusterName) {
+    await fetchEgressClassList()
+  }
+})
+
 // 方法
 const handleAdd = () => {
-  // 跳转到新增页面
-  router.push({ name: 'EgressMappingAdd' })
+  const clusterName = route.params.clusterName
+  router.push({ name: 'EgressMappingAdd', params: { clusterName } })
 }
 
 const handleView = (row) => {
-  // 查看详情
-  router.push({ name: 'EgressMappingDetail', params: { id: row.id } })
+  const clusterName = route.params.clusterName
+  router.push({ name: 'EgressMappingDetail', params: { clusterName, name: row.name } })
 }
 
-const handleEdit = (row) => {
-  // 编辑映射
-  console.log('编辑映射', row)
-}
+const handleDelete = async (row) => {
+  const clusterName = route.params.clusterName
 
-const handleDelete = (row) => {
   ElMessageBox.confirm(
     '删除后，出口网关映射无法恢复，确认要删除它吗？',
     '确认删除出口网关映射？',
@@ -155,18 +178,25 @@ const handleDelete = (row) => {
       distinguishCancelAndClose: true
     }
   )
-    .then(() => {
-      // 确认删除
-      console.log('删除映射', row)
-      // 这里实际应该调用删除API
-      // 删除成功后从列表中移除
-      const index = tableData.value.findIndex(item => item.id === row.id)
-      if (index > -1) {
-        tableData.value.splice(index, 1)
+    .then(async () => {
+      try {
+        await deleteEgressClass(clusterName, row.name)
+        ElMessage.success('删除成功')
+        await fetchEgressClassList()
+      } catch (error) {
+        console.error('删除出口网关映射失败:', error)
+        let errorMessage = '删除出口网关映射失败'
+        if (error.response && error.response.data && error.response.data.errorMsg) {
+          errorMessage = error.response.data.errorMsg
+        }
+        
+        ElMessageBox.alert(errorMessage, '删除失败', {
+          confirmButtonText: '确定',
+          type: 'error'
+        })
       }
     })
     .catch((action) => {
-      // 取消删除或关闭对话框
       if (action === 'cancel') {
         console.log('取消删除')
       }

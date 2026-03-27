@@ -3,7 +3,9 @@
     <!-- 面包屑导航 -->
     <div class="breadcrumb-wrapper">
       <el-breadcrumb separator="/">
-        <el-breadcrumb-item :to="{ name: 'EgressMapping' }">出口网关映射</el-breadcrumb-item>
+        <el-breadcrumb-item :to="{ name: 'EgressMapping', params: { clusterName: $route.params.clusterName || 'default' } }">
+          出口网关映射
+        </el-breadcrumb-item>
         <el-breadcrumb-item>出口网关映射详情</el-breadcrumb-item>
       </el-breadcrumb>
     </div>
@@ -24,7 +26,7 @@
     </div>
 
     <!-- 基本信息 -->
-    <div class="info-section">
+    <div class="info-section" v-loading="loading">
       <div class="section-header">
         <div class="section-title">
           <el-icon class="section-icon"><Menu /></el-icon>
@@ -38,7 +40,7 @@
         </div>
         <div class="info-item">
           <label>网关集群：</label>
-          <span>{{ mappingDetail.cluster }}</span>
+          <span>{{ mappingDetail.targetCluster }}</span>
         </div>
         <div class="info-item">
           <label>创建时间：</label>
@@ -55,22 +57,22 @@
           <h3>网关映射配置</h3>
         </div>
         <div v-if="!isEditMode">
-          <el-button type="primary" text @click="handleEdit">编辑</el-button>
+          <el-button type="primary" text @click="handleEdit" :loading="loading">编辑</el-button>
         </div>
         <div v-else class="edit-actions">
-          <el-button text @click="handleCancelEdit">取消</el-button>
-          <el-button type="primary" text @click="handleConfirm">确认</el-button>
+          <el-button text @click="handleCancelEdit" :disabled="submitting">取消</el-button>
+          <el-button type="primary" text @click="handleConfirm" :loading="submitting" :disabled="submitting">确认</el-button>
         </div>
       </div>
 
-      <div class="mapping-config">
+      <div class="mapping-config" v-loading="loading">
         <!-- 左侧：网关集群 -->
         <div class="cluster-card source-cluster">
-          <div class="card-header">{{ mappingDetail.cluster }}</div>
+          <div class="card-header">{{ mappingDetail.targetCluster }}</div>
           <div class="card-body">
             <div
               v-for="gateway in mappingDetail.sourceGateways"
-              :key="gateway.id"
+              :key="gateway.name"
               class="gateway-card"
               :class="{ 'removed': isEditMode && gateway.removed }"
             >
@@ -87,7 +89,13 @@
               </div>
               <div class="gateway-body">
                 <div class="gateway-tags">
-                  <span class="status-normal">{{ gateway.status }}</span>
+                  <span class="status-display">
+                    <span 
+                      class="status-dot" 
+                      :class="{ 'dot-normal': gateway.status === '正常', 'dot-error': gateway.status === '异常' }"
+                    ></span>
+                    {{ gateway.status }}
+                  </span>
                   <el-tag type="primary" size="small">{{ gateway.type }}</el-tag>
                   <el-tag type="info" size="small">地址：{{ gateway.address }}</el-tag>
                 </div>
@@ -111,7 +119,7 @@
         <div class="arrows-container">
           <div
             v-for="(gateway, index) in mappingDetail.sourceGateways"
-            :key="gateway.id"
+            :key="gateway.name"
             class="arrow-wrapper"
           >
             <el-icon :size="24" color="#909399">
@@ -122,11 +130,11 @@
 
         <!-- 右侧：目标集群 -->
         <div class="cluster-card target-cluster">
-          <div class="card-header">{{ mappingDetail.targetCluster }}</div>
+          <div class="card-header">{{ mappingDetail.clusterName }}</div>
           <div class="card-body">
             <div
               v-for="(gateway, index) in mappingDetail.targetGateways"
-              :key="gateway.id"
+              :key="gateway.name"
               class="gateway-card"
               :class="{ 
                 'pending-mapping': !gateway.name,
@@ -138,7 +146,13 @@
               </div>
               <div class="gateway-body">
                 <div v-if="gateway.name" class="gateway-tags">
-                  <span class="status-normal">{{ gateway.status }}</span>
+                  <span class="status-display">
+                    <span 
+                      class="status-dot" 
+                      :class="{ 'dot-normal': gateway.status === '正常', 'dot-error': gateway.status === '异常' }"
+                    ></span>
+                    {{ gateway.status }}
+                  </span>
                   <el-tag type="primary" size="small">{{ gateway.type }}</el-tag>
                   <el-tag type="info" size="small">地址：{{ gateway.address }}</el-tag>
                 </div>
@@ -151,168 +165,149 @@
     </div>
 
     <!-- 网关选择器抽屉 -->
-    <el-drawer
+    <GatewaySelectorDrawer
       v-model="showGatewaySelector"
-      title="添加出口网关"
-      direction="rtl"
-      size="941px"
-    >
-      <div class="gateway-selector">
-        <div class="selector-tip">
-          <span>若无出口网关，可前往</span>
-          <el-button type="primary" text @click="goToAddGateway">新建出口网关</el-button>
-          <el-button type="primary" text icon="Refresh" @click="refreshGateways" />
-        </div>
-
-        <el-table
-          ref="multipleTableRef"
-          :data="availableGateways"
-          style="width: 100%"
-          @selection-change="handleSelectionChange"
-        >
-          <el-table-column type="selection" width="48" />
-          <el-table-column property="name" label="出口网关名称" width="180" />
-          <el-table-column property="address" label="出口网关地址" width="180" />
-          <el-table-column property="status" label="状态" width="180">
-            <template #default="scope">
-              <el-tag v-if="scope.row.status === '正常'" type="success" size="small">
-                {{ scope.row.status }}
-              </el-tag>
-              <el-tag v-else type="danger" size="small">
-                {{ scope.row.status }}
-              </el-tag>
-            </template>
-          </el-table-column>
-        </el-table>
-
-        <div class="pagination-wrapper">
-          <el-pagination
-            v-model:current-page="selectorCurrentPage"
-            v-model:page-size="selectorPageSize"
-            :page-sizes="[10, 20, 50]"
-            :total="selectorTotal"
-            layout="total, sizes, prev, pager, next, jumper"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="drawer-footer">
-          <el-button @click="showGatewaySelector = false">取消</el-button>
-          <el-button type="primary" @click="confirmAddGateways">确认</el-button>
-        </div>
-      </template>
-    </el-drawer>
+      :available-gateways="availableGateways"
+      :loading="gatewayLoading"
+      :show-type-column="false"
+      @confirm="confirmAddGateways"
+      @refresh="fetchAvailableGateways"
+      @selection-change="handleSelectionChange"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Menu, DArrowRight, Refresh } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
+import { getEgressClassDetail, getEgressClassConfig, updateEgressClass, deleteEgressClass } from '@/api/egressClass'
+import { useClusterStore } from '@/stores/cluster'
+import GatewaySelectorDrawer from '@/components/GatewaySelectorDrawer.vue'
+import { listEgressNode } from '../../api/egressNode'
 
 const route = useRoute()
 const router = useRouter()
+const clusterStore = useClusterStore()
 
 // 编辑模式
 const isEditMode = ref(false)
-const originalMappingDetail = ref(null) // 保存原始数据用于取消操作
+const originalConfig = ref(null) // 保存原始配置用于取消操作
+const loading = ref(false)
+const submitting = ref(false)
 
 // 网关选择器
 const showGatewaySelector = ref(false)
-const multipleTableRef = ref()
 const selectedGateways = ref([])
-const selectorCurrentPage = ref(1)
-const selectorPageSize = ref(10)
-const selectorTotal = ref(0)
+const gatewayLoading = ref(false)
 
+// 映射详情
 const mappingDetail = ref({
-  id: 1,
-  name: '出口网关映射名称',
-  cluster: '网关集群名称',
-  targetCluster: '非网关集群名称',
-  createTime: '2025-01-01 00:00:00',
-  sourceGateways: [
-    {
-      id: 1,
-      name: '出口网关1',
-      type: '实体',
-      status: '正常',
-      address: '10.0.0.1',
-      removed: false
-    },
-    {
-      id: 2,
-      name: '出口网关2',
-      type: '实体',
-      status: '正常',
-      address: '10.0.0.1',
-      removed: false
-    },
-    {
-      id: 3,
-      name: '出口网关3',
-      type: '实体',
-      status: '正常',
-      address: '10.0.0.1',
-      removed: false
-    }
-  ],
-  targetGateways: [
-    {
-      id: 1,
-      name: '映射出口网关1',
-      type: '实体',
-      status: '正常',
-      address: '10.0.0.1'
-    },
-    {
-      id: 2,
-      name: '映射出口网关2',
-      type: '实体',
-      status: '正常',
-      address: '10.0.0.1'
-    },
-    {
-      id: 3,
-      name: null, // 待映射
-      type: null,
-      status: null,
-      address: null
-    }
-  ]
+  name: '',
+  clusterName: '',
+  targetCluster: '',
+  createTime: '',
+  sourceGateways: [],
+  targetGateways: []
 })
 
 // 可用网关列表
-const availableGateways = ref([
-  {
-    id: 4,
-    name: '节点1',
-    address: '10.10.103.80',
-    status: '正常'
-  },
-  {
-    id: 5,
-    name: '节点2',
-    address: '10.10.103.79',
-    status: '正常'
-  },
-  {
-    id: 6,
-    name: '节点3',
-    address: '10.10.103.78',
-    status: '正常'
-  },
-  {
-    id: 7,
-    name: '节点4',
-    address: '10.10.103.77',
-    status: '异常'
-  }
-])
+const availableGateways = ref([])
 
-selectorTotal.value = availableGateways.value.length
+
+// 格式化时间
+const formatTime = (timeStr) => {
+  if (!timeStr) return '--'
+  const date = new Date(timeStr)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).replace(/\//g, '-')
+}
+
+// 获取映射详情
+const fetchMappingDetail = async () => {
+  try {
+    loading.value = true
+    const clusterName = route.params.clusterName
+    const egressClassName = route.params.name
+    
+    // 获取基本信息
+    const detailResponse = await getEgressClassDetail(clusterName, egressClassName)
+    const detail = detailResponse.data
+    // 获取配置信息
+    const configResponse = await getEgressClassConfig(clusterName, egressClassName)
+    const config = configResponse.data
+    // 组合数据
+    mappingDetail.value = {
+      name: detail.name,
+      clusterName: detail.clusterDisplayName,
+      targetCluster: detail.gatewayClusterDisplayName,
+      createTime: formatTime(detail.createTime),
+      sourceGateways: config.detailedSyncEgressNodes.map(node => ({
+        name: node.name,
+        type: '实体',
+        status: node.status === 1 ? '正常' : '异常',
+        address: node.egressIpType === 0 ? node.currentNode : node.egressIP,
+        removed: false
+      })),
+      targetGateways: config.detailedSyncedEgressNodes.map(node => ({
+        name: node.name,
+        type: '映射',
+        status: node.status === 1 ? '正常' : '异常',
+        address: node.egressIpType === 0 ? node.currentNode : node.egressIP,
+        hasBeenUsedByPolicy: node.hasBeenUsedByPolicy
+      }))
+    }
+    // 保存原始配置
+    originalConfig.value = JSON.parse(JSON.stringify(config))
+  } catch (error) {
+    console.error('获取出口网关映射详情失败:', error)
+    ElMessage.error('获取出口网关映射详情失败，请稍后重试')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 获取可用网关列表
+const fetchAvailableGateways = async () => {
+  try {
+    gatewayLoading.value = true
+    const config = originalConfig.value
+    if (!config || !config.gatewayClusterName) return
+    
+    const response = await listEgressNode(config.gatewayClusterName)
+    const data = response.data || []
+    
+    // 只显示实体网关，排除已选择的
+    const selectedIds = mappingDetail.value.sourceGateways.map(g => g.name)
+    availableGateways.value = data
+      .filter(item => item.type === 0 && !selectedIds.includes(item.name))
+      .map(item => ({
+        name: item.name,
+        address: item.egressIpType === 0 ? item.currentNode : item.egressIP,
+        status: item.status === 1 ? '正常' : '异常'
+      }))
+    
+    selectorCurrentPage.value = 1
+  } catch (error) {
+    console.error('获取可用网关列表失败:', error)
+    ElMessage.error('获取可用网关列表失败')
+  } finally {
+    gatewayLoading.value = false
+  }
+}
+
+// 初始化
+onMounted(async () => {
+  await fetchMappingDetail()
+})
 
 const goBack = () => {
   if (isEditMode.value) {
@@ -326,41 +321,58 @@ const goBack = () => {
       }
     )
       .then(() => {
-        router.push({ name: 'EgressMapping' })
+        const clusterName = route.params.clusterName
+        router.push({ name: 'EgressMapping', params: { clusterName } })
       })
-      .catch(() => {
-        // 取消离开
-      })
+      .catch(() => {})
   } else {
-    router.push({ name: 'EgressMapping' })
+    const clusterName = route.params.clusterName
+    router.push({ name: 'EgressMapping', params: { clusterName } })
   }
 }
 
-const handleEdit = () => {
-  // 保存原始数据的深拷贝
-  originalMappingDetail.value = JSON.parse(JSON.stringify(mappingDetail.value))
+const handleEdit = async () => {
   isEditMode.value = true
+  await fetchAvailableGateways()
 }
 
-const handleCancelEdit = () => {
-  // 恢复原始数据
-  if (originalMappingDetail.value) {
-    mappingDetail.value = JSON.parse(JSON.stringify(originalMappingDetail.value))
+const handleCancelEdit = async () => {
+  isEditMode.value = false
+  await fetchMappingDetail()
+}
+
+const handleConfirm = async () => { 
+  try {
+    submitting.value = true
+    const clusterName = route.params.clusterName
+    const egressClassName = route.params.name
+    
+    // 构建更新数据：只包含未移除的网关
+    const activeGateways = mappingDetail.value.sourceGateways
+      .filter(g => !g.removed)
+      .map(g => g.name)
+    
+    const updateData = {
+      name: mappingDetail.value.name,
+      clusterName: clusterName,
+      gatewayClusterName: originalConfig.value.gatewayClusterName,
+      syncEgressNodes: activeGateways
+    }
+    
+    await updateEgressClass(clusterName, egressClassName, updateData)
+    ElMessage.success('保存成功')
+    isEditMode.value = false
+    await fetchMappingDetail()
+  } catch (error) {
+    console.error('保存映射配置失败:', error)
+    ElMessage.error('保存映射配置失败，请稍后重试')
+  } finally {
+    submitting.value = false
   }
-  isEditMode.value = false
-  originalMappingDetail.value = null
-}
-
-const handleConfirm = () => {
-  // 保存编辑
-  console.log('保存映射配置', mappingDetail.value)
-  // 这里实际应该调用保存API
-  ElMessage.success('保存成功')
-  isEditMode.value = false
-  originalMappingDetail.value = null
 }
 
 const handleDelete = () => {
+  // 直接显示确认对话框
   ElMessageBox.confirm(
     '删除后，出口网关映射无法恢复，确认要删除它吗？',
     '确认删除出口网关映射？',
@@ -371,15 +383,28 @@ const handleDelete = () => {
       distinguishCancelAndClose: true
     }
   )
-    .then(() => {
-      // 确认删除
-      console.log('删除映射', mappingDetail.value)
-      // 这里实际应该调用删除API
-      // 删除成功后返回列表页
-      router.push({ name: 'EgressMapping' })
+    .then(async () => {
+      try {
+        const clusterName = route.params.clusterName
+        const egressClassName = route.params.name
+        await deleteEgressClass(clusterName, egressClassName)
+        ElMessage.success('删除成功')
+        router.push({ name: 'EgressMapping', params: { clusterName } })
+      } catch (error) {
+        console.error('删除映射失败:', error)
+        // 直接显示后端返回的错误信息
+        let errorMessage = '删除出口网关映射失败，请稍后重试'
+        if (error.response && error.response.data && error.response.data.errorMsg) {
+          errorMessage = error.response.data.errorMsg
+        }
+        
+        ElMessageBox.alert(errorMessage, '删除失败', {
+          confirmButtonText: '确定',
+          type: 'error'
+        })
+      } 
     })
     .catch((action) => {
-      // 取消删除或关闭对话框
       if (action === 'cancel') {
         console.log('取消删除')
       }
@@ -387,34 +412,54 @@ const handleDelete = () => {
 }
 
 const toggleGatewayStatus = (gateway) => {
-  gateway.removed = !gateway.removed
+  const index = mappingDetail.value.sourceGateways.indexOf(gateway)
+  // 如果是新添加的网关，直接从列表中删除
+  if (gateway.isNew) {
+    if (index >= 0) {
+      mappingDetail.value.sourceGateways.splice(index, 1)
+      mappingDetail.value.targetGateways.splice(index, 1)
+    }
+  } else {
+    // 否则，切换移除状态（置灰）
+    gateway.removed = !gateway.removed
+    // 同时更新目标网关的状态
+    if (index >= 0 && mappingDetail.value.targetGateways[index]) {
+      mappingDetail.value.targetGateways[index].removed = gateway.removed
+    }
+  }
 }
 
 const handleSelectionChange = (val) => {
   selectedGateways.value = val
 }
 
-const confirmAddGateways = () => {
-  if (selectedGateways.value.length === 0) {
+const confirmAddGateways = (newSelectedGateways) => {
+  if (newSelectedGateways.length === 0) {
     ElMessage.warning('请选择要添加的出口网关')
     return
   }
   
   // 将选中的网关添加到源网关列表
-  selectedGateways.value.forEach(gateway => {
+  newSelectedGateways.forEach(gateway => {
+    // 检查是否已存在（避免重复添加）
+    const exists = mappingDetail.value.sourceGateways.some(g => g.name === gateway.name)
+    if (exists) {
+      ElMessage.warning(`出口网关 ${gateway.name} 已存在`)
+      return
+    }
+    
     mappingDetail.value.sourceGateways.push({
-      id: gateway.id,
       name: gateway.name,
       type: '实体',
       status: gateway.status,
       address: gateway.address,
-      removed: false
+      removed: false,
+      isNew: true // 标记为新添加的网关
     })
     
-    // 同时添加到目标网关列表（作为待映射）
+    // 同时添加到目标网关列表（作为待映射状态）
     mappingDetail.value.targetGateways.push({
-      id: gateway.id,
-      name: null,
+      name: null, // 待映射，不显示名称
       type: null,
       status: null,
       address: null
@@ -423,25 +468,15 @@ const confirmAddGateways = () => {
   
   showGatewaySelector.value = false
   selectedGateways.value = []
+  
+  // 清空表格选择
+  if (multipleTableRef.value) {
+    multipleTableRef.value.clearSelection()
+  }
+  
   ElMessage.success('添加成功')
 }
 
-const goToAddGateway = () => {
-  // 跳转到新建出口网关页面
-  router.push({ name: 'EgressNodeAdd' })
-}
-
-const refreshGateways = () => {
-  // 刷新可用网关列表
-  console.log('刷新网关列表')
-  ElMessage.success('刷新成功')
-}
-
-onMounted(() => {
-  const id = route.params.id
-  // 模拟根据ID获取映射详情数据
-  console.log('加载映射详情:', id)
-})
 </script>
 
 <style lang="scss" scoped>
@@ -676,9 +711,27 @@ onMounted(() => {
               gap: 24px;
               padding-left: 4px;
 
-              .status-normal {
+              .status-display {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
                 font-size: 14px;
-                color: #3D3D3D;
+              }
+              
+              .status-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                display: inline-block;
+                flex-shrink: 0;
+
+                &.dot-normal {
+                  background-color: #67C23A;
+                }
+
+                &.dot-error {
+                  background-color: #EA0000;
+                }
               }
             }
 
