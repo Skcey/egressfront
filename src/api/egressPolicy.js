@@ -10,7 +10,7 @@ export function getEgressPolicies(clusterName, namespace = '') {
   return request({
     url: `/clusters/${clusterName}/egressPolicies`,
     method: 'get',
-    params: namespace ? { namespace } : {}
+    params: { namespace }
   })
 }
 

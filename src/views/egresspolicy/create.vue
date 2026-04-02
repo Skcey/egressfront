@@ -72,9 +72,9 @@
               >
                 <el-option 
                   v-for="ns in availableNamespaces" 
-                  :key="ns" 
-                  :label="ns" 
-                  :value="ns" 
+                  :key="ns.value" 
+                  :label="ns.label" 
+                  :value="ns.value" 
                 />
               </el-select>
             </div>
@@ -392,15 +392,32 @@ const fetchAvailableGateways = async () => {
   }
 }
 
+// 获取命名空间列表
+const fetchNamespaces = async () => {
+  try {
+    const clusterName = route.params.clusterName
+    const response = await getNamespaces(clusterName)
+    const data = response.data || []
+    availableNamespaces.value = data.map(item => ({
+      value: item.name,
+      label: item.name
+    }))
+  } catch (error) {
+    handleError(error, '获取命名空间失败')
+  }
+}
+
 // 初始化
 onMounted(async () => {
   await fetchClusterName()
+  await fetchNamespaces()
   await fetchAvailableGateways()
 })
 
 // 监听集群变化
 watch(() => route.params.clusterName, async () => {
   await fetchClusterName()
+  await fetchNamespaces()
   await fetchAvailableGateways()
   // 重置表单
   Object.assign(formData, {

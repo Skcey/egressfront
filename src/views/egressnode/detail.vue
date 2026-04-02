@@ -358,7 +358,7 @@ const getEgressNodeDetail = async () => {
       clusterDisplayName: detail.clusterDisplayName,
       clusterName: detail.clusterName,
       hasBeenUsedByPolicy: detail.hasBeenUsedByPolicy,
-      address: config.egressIpType === 0 ? config.currentNode : config.egressIp,
+      address: config.egressIpType === 0 ? config.currentNode : config.egressIP,
       // 处理节点列表
       nodes: config.nodeList ? config.nodeList.map((node, index) => ({
         name: node.name,
@@ -375,13 +375,13 @@ const getEgressNodeDetail = async () => {
         egressClassName: config.egressClass, // 出口网关映射名称
         sourceGateway: {
           name: config.syncEgressNodeName,
-          address: config.egressIpType === 0 ? config.currentNode : config.egressIp,
+          address: config.egressIpType === 0 ? config.currentNode : config.egressIP,
           clusterDisplayName: config.gatewayClusterDisplayName,
           clusterName: config.gatewayClusterName
         },
         targetGateway: {
           name: detail.name,
-          address: config.egressIpType === 0 ? config.currentNode : config.egressIp,
+          address: config.egressIpType === 0 ? config.currentNode : config.egressIP,
           clusterDisplayName: detail.clusterDisplayName,
           clusterName: detail.clusterName
         }
@@ -435,7 +435,7 @@ const handleEdit = () => {
   const config = gatewayConfig.value
   editForm.value = {
     addressType: config.egressIpType === 0 ? 'dynamic' : 'custom',
-    customAddress: config.egressIp || '',
+    customAddress: config.egressIP || '',
     selectedNodes: JSON.parse(JSON.stringify(gatewayDetail.value.nodes))
   }
   isEditing.value = true
@@ -476,7 +476,7 @@ const handleSaveEdit = async () => {
       name: gatewayDetail.value.name,
       clusterName: clusterName,
       egressIpType: editForm.value.addressType === 'custom' ? 1 : 0,
-      egressIp: editForm.value.addressType === 'custom' ? editForm.value.customAddress.trim() : null,
+      egressIP: editForm.value.addressType === 'custom' ? editForm.value.customAddress.trim() : null,
       nodeList: editForm.value.selectedNodes.map(node => ({
         ip: node.ip,
         interfaceName: node.interface.trim()

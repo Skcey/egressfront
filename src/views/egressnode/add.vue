@@ -294,8 +294,9 @@ const handleSubmit = async () => {
     // 构建创建数据
     const createData = {
       name: formData.value.name.trim(),
+      clusterName: clusterName, 
       egressIpType: formData.value.addressType === 'custom' ? 1 : 0,
-      egressIp: formData.value.addressType === 'custom' ? formData.value.customAddress.trim() : null,
+      egressIP: formData.value.addressType === 'custom' ? formData.value.customAddress.trim() : null,
       nodeList: formData.value.selectedNodes.map(node => ({
         ip: node.ip,
         interfaceName: node.interface.trim()

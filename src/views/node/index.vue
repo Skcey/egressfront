@@ -67,7 +67,7 @@ const fetchNodeList = async () => {
     nodeList.value = response.data.map((node, index) => ({
       name: node.name,
       ip: node.ip,
-      status: node.status === 1 ? '正常' : '异常',
+      status: node.status === "Ready" ? '正常' : '异常',
       egressNodeDeployed: node.egressNodeDeployed
     }))
   } catch (error) {
