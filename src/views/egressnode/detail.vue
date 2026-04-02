@@ -295,7 +295,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Menu, CircleCloseFilled, DArrowRight } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
@@ -305,8 +305,8 @@ import { getEgressNode, getEgressNodeConfiguration, updateEgressNode, deleteEgre
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
-const clusterName = route.params.clusterName
-const egressNodeName = route.params.name
+const clusterName = computed(() => route.params.clusterName)
+const egressNodeName = computed(() => route.params.name)
 const gatewayDetail = ref({
   name: '',
   address: '',
@@ -343,10 +343,10 @@ const getEgressNodeDetail = async () => {
   try {
     loading.value = true
     // 获取基本详情
-    const detailResponse = await getEgressNode(clusterName, egressNodeName)
+    const detailResponse = await getEgressNode(clusterName.value, egressNodeName.value)
     const detail = detailResponse.data
     // 获取配置信息
-    const configResponse = await getEgressNodeConfiguration(clusterName, egressNodeName, true)
+    const configResponse = await getEgressNodeConfiguration(clusterName.value, egressNodeName.value, true)
     const config = configResponse.data
     gatewayConfig.value = config
     // 组合数据
@@ -418,7 +418,7 @@ const checkDeleteButtonState = async () => {
 const goBack = () => {
   router.push({ 
     name: 'Egress',
-    params: { clusterName }
+    params: { clusterName: clusterName.value }
   })
 }
 
@@ -483,7 +483,7 @@ const handleSaveEdit = async () => {
       }))
     }
 
-    await updateEgressNode(clusterName, egressNodeName, updateData)
+    await updateEgressNode(clusterName.value, egressNodeName.value, updateData)
     ElMessage.success('修改成功')
     
     await getEgressNodeDetail()
@@ -556,7 +556,7 @@ const handleDelete = () => {
   )
     .then(async () => {
       try {
-        await deleteEgressNode(clusterName, egressNodeName)
+        await deleteEgressNode(clusterName.value, egressNodeName.value)
         ElMessage.success('删除成功')
         // 删除成功后返回列表页
         goBack()
@@ -584,6 +584,14 @@ const handleDelete = () => {
 onMounted(() => {
   getEgressNodeDetail()
 })
+
+// 当路由参数变化（集群或名称变更）时，自动重新加载详情
+watch(
+  () => [route.params.clusterName, route.params.name],
+  () => {
+    getEgressNodeDetail()
+  }
+)
 </script>
 
 <style lang="scss" scoped>
