@@ -151,9 +151,9 @@ const formData = ref({
   // 跨集群配置
   const crossCluster = ref({
     targetCluster: '',
-    mappingGateway: '',
+    mappedGateway: '',
     namespace: '',
-    route: ''
+    egressRoute: ''
   })
   
   // 跨集群选项数据
@@ -252,9 +252,9 @@ const fetchPolicyDetail = async () => {
       const external = data.externalEgressPolicies[0]
       crossCluster.value = {
         targetCluster: external.clusterName,
-        mappingGateway: external.egressNode?.name || '',
+        mappedGateway: external.egressNode?.name || '',
         namespace: external.namespace,
-        route: external.name
+        egressRoute: external.name
       }
     }
     
@@ -283,9 +283,9 @@ const goBack = () => {
 // 处理目标集群选择变化
 const handleTargetClusterChange = async (targetClusterName) => {
   // 清空后续选项
-  crossCluster.value.mappingGateway = ''
+  crossCluster.value.mappedGateway = ''
   crossCluster.value.namespace = ''
-  crossCluster.value.route = ''
+  crossCluster.value.egressRoute = ''
   mappingGatewayOptions.value = []
   namespaceOptions.value = []
   routeOptions.value = []
@@ -357,7 +357,7 @@ const handleMappingGatewayChange = (gatewayName) => {
   
   // 重置后续选项
   crossCluster.value.namespace = ''
-  crossCluster.value.route = ''
+  crossCluster.value.egressRoute = ''
   routeOptions.value = []
   
   // 命名空间列表已经在选择目标集群时获取了，这里不需要重新获取
@@ -366,7 +366,7 @@ const handleMappingGatewayChange = (gatewayName) => {
   
 // 处理命名空间选择变化
 const handleNamespaceChange = async (namespace) => {
-  crossCluster.value.route = ''
+  crossCluster.value.egressRoute = ''
 
   if (!namespace) {
     routeOptions.value = []
@@ -375,7 +375,7 @@ const handleNamespaceChange = async (namespace) => {
 
   try {
     const targetCluster = crossCluster.value.targetCluster
-    const gatewayName = crossCluster.value.mappingGateway
+    const gatewayName = crossCluster.value.mappedGateway
 
     // 获取该命名空间下使用该映射网关的路由
     const response = await getExternalEgressPolicies(targetCluster, gatewayName)

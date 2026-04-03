@@ -60,8 +60,8 @@ export function useFormValidation(formData) {
       const crossCluster = formData.value.crossCluster || {}
       
       // 所有下拉框都要选择
-      if (!crossCluster.targetCluster || !crossCluster.mappingGateway ||
-          !crossCluster.namespace || (!crossCluster.egressRoute && !crossCluster.route)) {
+      if (!crossCluster.targetCluster || !crossCluster.mappedGateway ||
+          !crossCluster.namespace || !crossCluster.egressRoute) {
         return false
       }
     }
@@ -102,7 +102,7 @@ export function useFormValidation(formData) {
       return { valid: false, message: '请选择目标集群' }
     }
 
-    if (!crossCluster.mappingGateway) {
+    if (!crossCluster.mappedGateway) {
       return { valid: false, message: '请选择映射网关' }
     }
 
@@ -110,7 +110,7 @@ export function useFormValidation(formData) {
       return { valid: false, message: '请选择命名空间' }
     }
 
-    if (!crossCluster.egressRoute && !crossCluster.route) {
+    if (!crossCluster.egressRoute) {
       return { valid: false, message: '请选择出口路由' }
     }
 
@@ -184,7 +184,7 @@ export function useFormValidation(formData) {
     }
 
     return [{
-      name: crossCluster.egressRoute || crossCluster.route,
+      name: crossCluster.egressRoute,
       clusterName: crossCluster.targetCluster,
       namespace: crossCluster.namespace
     }]

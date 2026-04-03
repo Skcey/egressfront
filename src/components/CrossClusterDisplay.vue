@@ -9,12 +9,12 @@
         <div :class="rowClass">
           <div class="cross-cluster-item">
             <span class="info-label">
-              {{ gatewayName }} 的映射网关 {{ crossCluster.targetCluster }} / {{ crossCluster.mappingGateway || crossCluster.mappedGateway }}
+              {{ gatewayName }} 的映射网关 {{ crossCluster.targetCluster }} / {{ crossCluster.mappedGateway }}
             </span>
           </div>
           <div class="cross-cluster-item">
             <span class="info-label">
-              关联跨集群映射网关的出口路由 {{ crossCluster.namespace }} / {{ crossCluster.egressRoute || crossCluster.route }}
+              关联跨集群映射网关的出口路由 {{ crossCluster.namespace }} / {{ crossCluster.egressRoute }}
             </span>
           </div>
         </div>
@@ -81,7 +81,7 @@ const rowClass = computed(() => {
 // 检查是否有有效数据
 const hasValidData = computed(() => {
   const cc = props.crossCluster
-  return cc && (cc.targetCluster || cc.mappingGateway || cc.mappedGateway || cc.namespace || cc.egressRoute || cc.route)
+  return cc && (cc.targetCluster || cc.mappedGateway || cc.namespace || cc.egressRoute)
 })
 </script>
 

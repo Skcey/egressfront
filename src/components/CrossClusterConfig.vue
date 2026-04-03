@@ -28,7 +28,7 @@
               />
             </el-select>
             <el-select
-              v-model="localCrossCluster.mappingGateway"
+              v-model="localCrossCluster.mappedGateway"
               :placeholder="localCrossCluster.targetCluster ? '请选择映射网关' : '请先选择目标集群'"
               :disabled="!localCrossCluster.targetCluster"
               size="default"
@@ -60,8 +60,8 @@
           <div class="select-row">
             <el-select
               v-model="localCrossCluster.namespace"
-              :placeholder="localCrossCluster.mappingGateway ? '请选择命名空间' : '请先选择映射网关'"
-              :disabled="!localCrossCluster.mappingGateway"
+              :placeholder="localCrossCluster.mappedGateway ? '请选择命名空间' : '请先选择映射网关'"
+              :disabled="!localCrossCluster.mappedGateway"
               size="default"
               @change="handleNamespaceChange"
             >
@@ -73,7 +73,7 @@
               />
             </el-select>
             <el-select
-              v-model="localCrossCluster.route"
+              v-model="localCrossCluster.egressRoute"
               :placeholder="localCrossCluster.namespace ? '请选择路由' : '请先选择命名空间'"
               :disabled="!localCrossCluster.namespace"
               size="default"
@@ -109,9 +109,9 @@ const props = defineProps({
     type: Object,
     default: () => ({
       targetCluster: '',
-      mappingGateway: '',
+      mappedGateway: '',
       namespace: '',
-      route: ''
+      egressRoute: ''
     })
   },
   isGatewayMapped: {
@@ -166,30 +166,30 @@ const handleTargetClusterChange = (targetCluster) => {
   const newCrossCluster = {
     ...localCrossCluster.value,
     targetCluster,
-    mappingGateway: '',
+    mappedGateway: '',
     namespace: '',
-    route: ''
+    egressRoute: ''
   }
   emit('update:crossCluster', newCrossCluster)
   emit('target-cluster-change', targetCluster)
 }
 
-const handleMappingGatewayChange = (mappingGateway) => {
+const handleMappingGatewayChange = (mappedGateway) => {
   const newCrossCluster = {
     ...localCrossCluster.value,
-    mappingGateway,
+    mappedGateway,
     namespace: '',
-    route: ''
+    egressRoute: ''
   }
   emit('update:crossCluster', newCrossCluster)
-  emit('mapping-gateway-change', mappingGateway)
+  emit('mapping-gateway-change', mappedGateway)
 }
 
 const handleNamespaceChange = (namespace) => {
   const newCrossCluster = {
     ...localCrossCluster.value,
     namespace,
-    route: ''
+    egressRoute: ''
   }
   emit('update:crossCluster', newCrossCluster)
   emit('namespace-change', namespace)

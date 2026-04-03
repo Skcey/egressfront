@@ -348,14 +348,15 @@ const handleCurrentChange = (page) => {
     .gateway-cell {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 4px;
 
       .gateway-name {
-        width: 140px;
+        flex: 1 1 auto;
+        min-width: 0; // 允许在flex容器中正确触发省略号
+        max-width: 220px; // 设置一个合理的最大宽度
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        flex-shrink: 0;
       }
 
       .el-tag {
