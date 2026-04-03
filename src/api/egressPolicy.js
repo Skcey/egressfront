@@ -48,14 +48,14 @@ export function toggleEgressPolicy(clusterName, namespace, policyName, enable) {
  * 查询跨集群出口网关路由
  * @param {string} clusterName - 集群名称
  * @param {string} egressNodeName - 出口网关名称
- * @param {string} namespace - 命名空间（可选）
+ * @param {Array} destIPBlocks - 目标地址块列表
  * @returns {Promise}
  */
-export function getExternalEgressPolicies(clusterName, egressNodeName, namespace = '') {
+export function getExternalEgressPolicies(clusterName, egressNodeName, destIPBlocks = []) {
   return request({
     url: `/clusters/${clusterName}/egressNodes/${egressNodeName}/egressPolicies`,
-    method: 'get',
-    params: namespace ? { namespace } : {}
+    method: 'post',
+    data: destIPBlocks
   })
 }
 

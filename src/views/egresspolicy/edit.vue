@@ -378,7 +378,9 @@ const handleNamespaceChange = async (namespace) => {
     const gatewayName = crossCluster.value.mappedGateway
 
     // 获取该命名空间下使用该映射网关的路由
-    const response = await getExternalEgressPolicies(targetCluster, gatewayName)
+    // 传递当前路由的目标地址块用于筛选
+    const destIPBlocks = originalData.value.destIPBlocks || []
+    const response = await getExternalEgressPolicies(targetCluster, gatewayName, destIPBlocks)
     const policies = response.data || []
 
     // 筛选指定命名空间的路由

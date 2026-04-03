@@ -709,10 +709,16 @@ const handleNamespaceChange = async (namespace) => {
     const targetCluster = formData.crossCluster.targetCluster
     const mappedGateway = formData.crossCluster.mappedGateway
     
-    const response = await getExternalEgressPolicies(targetCluster, mappedGateway, namespace)
+    // 构建 destIPBlocks 参数
+    const destIPBlocks = buildDestIPBlocks(formData.targetAddresses)
+    
+    const response = await getExternalEgressPolicies(targetCluster, mappedGateway, destIPBlocks)
     const routes = response.data || []
     
-    crossClusterOptions.routes = routes.map(r => ({
+    // 筛选指定命名空间的路由
+    const filteredRoutes = routes.filter(r => r.namespace === namespace)
+    
+    crossClusterOptions.routes = filteredRoutes.map(r => ({
       value: r.name,
       label: r.name
     }))
