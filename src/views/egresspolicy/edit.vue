@@ -128,9 +128,6 @@ const originalData = ref({})
 // 当前步骤
 const currentStep = ref(0)
 
-// 使用表单验证逻辑
-const { canGoNext, buildTargetsData, buildExternalEgressPolicies } = useFormValidation(formData)
-
 // 表单数据
 const formData = ref({
   enableLocalAccess: false,
@@ -147,6 +144,9 @@ const formData = ref({
     }
   ]
 })
+
+// 使用表单验证逻辑
+const { canGoNext, buildTargetsData, buildExternalEgressPolicies } = useFormValidation(formData)
 
   // 跨集群配置
   const crossCluster = ref({

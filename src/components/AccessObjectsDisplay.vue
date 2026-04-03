@@ -80,6 +80,12 @@ const props = defineProps({
     type: String,
     default: 'confirm',
     validator: (value) => ['confirm', 'detail', 'tab'].includes(value)
+  },
+  // 访问对象类型：'local' (本集群) | 'cross' (跨集群)
+  type: {
+    type: String,
+    default: 'local',
+    validator: (value) => ['local', 'cross'].includes(value)
   }
 })
 
@@ -146,7 +152,7 @@ const formatTag = (tag) => {
 
 // 处理查看匹配对象
 const handleViewMatch = (index) => {
-  emit('view-match', 'local', index)
+  emit('view-match', props.type, index)
 }
 </script>
 

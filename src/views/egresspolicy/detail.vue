@@ -131,108 +131,77 @@
             <el-tab-pane v-if="routeData.crossCluster.hasData" label="跨集群访问对象" name="cross">
               <div class="tab-content">
                 <div v-if="routeData.crossCluster.hasData">
-                <div class="cross-cluster-header">
-                  <span class="header-text">关联跨集群网关映射实例下出口路由</span>
-                </div>
+                  <div class="cross-cluster-header">
+                    <span class="header-text">关联跨集群网关映射实例下出口路由</span>
+                  </div>
 
-                <div class="cross-cluster-section">
-                  <!-- 关联的出口路由卡片 -->
-                  <div class="route-card">
-                    <div class="route-card-header">
-                      <div class="route-name-row">
-                        <span
-                          class="route-name cross-route-link"
-                          @click="navigateToCrossRoute"
-                          :title="`点击查看 ${routeData.crossCluster.routeName} 详情`"
-                          style="cursor: pointer; user-select: none;"
-                        >
-                          {{ routeData.crossCluster.routeName }}
-                        </span>
-                        <span class="status-display" style="margin-left: 14px">
-                          <span class="status-dot dot-normal"></span>
-                          正常
-                        </span>
-                      </div>
-                    </div>
-                    <div class="route-card-body">
-                      <div class="card-info-item">
-                        <span class="info-label">所属出口网关</span>
-                        <div class="info-value">
+                  <div class="cross-cluster-section">
+                    <!-- 关联的出口路由卡片 -->
+                    <div class="route-card">
+                      <div class="route-card-header">
+                        <div class="route-name-row">
                           <span
-                            class="cross-gateway-link"
-                            @click="navigateToCrossGateway"
-                            :title="`点击查看 ${routeData.crossCluster.gateway} 详情`"
+                            class="route-name cross-route-link"
+                            @click="navigateToCrossRoute"
+                            :title="`点击查看 ${routeData.crossCluster.routeName} 详情`"
                             style="cursor: pointer; user-select: none;"
                           >
-                            {{ routeData.crossCluster.gateway }}
+                            {{ routeData.crossCluster.routeName }}
                           </span>
-                          <el-tag type="warning" size="small" style="margin-left: 6px">映射</el-tag>
+                          <span class="status-display" style="margin-left: 14px">
+                            <span class="status-dot dot-normal"></span>
+                            正常
+                          </span>
                         </div>
                       </div>
-                      <div class="card-info-item">
-                        <span class="info-label">所在集群</span>
-                        <span class="info-value">{{ routeData.crossCluster.cluster }}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 生效访问目标地址 -->
-                  <div class="effective-address">
-                    <div class="effective-row">
-                      <span class="effective-label">生效访问目标地址：</span>
-                      <el-tag size="small" type="info">{{ routeData.crossCluster.effectiveAddress }}</el-tag>
-                    </div>
-                    <el-tag type="warning" size="small" class="warning-tip">
-                      生效访问目标地址为 当前出口路由 与 关联映射网关的出口路由 共同配置的访问地址
-                    </el-tag>
-                  </div>
-
-                  <!-- 生效对象 -->
-                  <div class="effective-objects">
-                    <span class="objects-label">生效对象：</span>
-                  </div>
-
-                  <!-- 访问对象列表 -->
-                  <div 
-                    v-for="(obj, index) in routeData.crossCluster.objects" 
-                            :key="index"
-                    class="access-section"
-                  >
-                    <div class="access-row">
-                      <div class="access-item">
-                        <span class="access-label">命名空间选择器</span>
-                        <div class="tag-group">
-                          <el-tag
-                            v-for="(tag, tagIndex) in obj.namespaceSelectors"
-                            :key="tagIndex"
-                            size="small"
-                            type="info"
-                          >
-                            {{ tag }}
-                          </el-tag>
-                        </div>
-                      </div>
-                      <div class="access-item">
-                        <span class="access-label">Pod</span>
-                        <div class="pod-content">
-                          <span class="pod-type">{{ obj.podSelectors.includes('全部Pod') ? '全部Pod' : '部分Pod' }}</span>
-                          <div class="tag-group" v-if="!obj.podSelectors.includes('全部Pod')">
-                            <el-tag
-                              v-for="(tag, tagIndex) in obj.podSelectors"
-                              :key="tagIndex"
-                              size="small"
-                              type="info"
+                      <div class="route-card-body">
+                        <div class="card-info-item">
+                          <span class="info-label">所属出口网关</span>
+                          <div class="info-value">
+                            <span
+                              class="cross-gateway-link"
+                              @click="navigateToCrossGateway"
+                              :title="`点击查看 ${routeData.crossCluster.gateway} 详情`"
+                              style="cursor: pointer; user-select: none;"
                             >
-                              {{ tag }}
-                            </el-tag>
+                              {{ routeData.crossCluster.gateway }}
+                            </span>
+                            <el-tag type="warning" size="small" style="margin-left: 6px">映射</el-tag>
                           </div>
                         </div>
+                        <div class="card-info-item">
+                          <span class="info-label">所在集群</span>
+                          <span class="info-value">{{ routeData.crossCluster.cluster }}</span>
+                        </div>
                       </div>
                     </div>
-                    <el-link type="primary" @click="handleViewMatch('cross', index)">查看匹配对象</el-link>
+
+                    <!-- 生效访问目标地址 -->
+                    <div class="effective-address">
+                      <div class="effective-row">
+                        <span class="effective-label">生效访问目标地址：</span>
+                        <el-tag size="small" type="info">{{ routeData.crossCluster.effectiveAddress }}</el-tag>
+                      </div>
+                      <el-tag type="warning" size="small" class="warning-tip">
+                        生效访问目标地址为 当前出口路由 与 关联映射网关的出口路由 共同配置的访问地址
+                      </el-tag>
+                    </div>
+
+                    <!-- 生效对象 -->
+                    <div class="effective-objects-header">
+                      <span class="objects-label">生效对象：</span>
+                    </div>
+
+                    <!-- 访问对象列表 - 使用统一组件 -->
+                    <AccessObjectsDisplay 
+                      :access-objects="routeData.crossCluster.objects"
+                      :show-title="false"
+                      variant="tab"
+                      type="cross"
+                      @view-match="handleViewMatch"
+                    />
+                    
                   </div>
-                  
-                </div>
                 </div>
 
                 <!-- 无数据提示 -->
@@ -254,7 +223,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, Menu } from '@element-plus/icons-vue'
 import { getEgressPolicyDetail, toggleEgressPolicy, deleteEgressPolicy, getPods } from '@/api/egressPolicy'
@@ -485,6 +454,22 @@ onMounted(async () => {
   await fetchClusterNames()
   await fetchPolicyDetail()
 })
+
+// 监听路由参数变化，重新加载数据
+watch(
+  () => [route.params.clusterName, route.params.namespace, route.params.name],
+  async ([newCluster, newNamespace, newName], [oldCluster, oldNamespace, oldName]) => {
+    // 只有参数真正变化时才重新加载
+    if (newCluster !== oldCluster || newNamespace !== oldNamespace || newName !== oldName) {
+      console.log('[Detail] 路由参数变化，重新加载数据:', {
+        cluster: newCluster,
+        namespace: newNamespace,
+        name: newName
+      })
+      await fetchPolicyDetail()
+    }
+  }
+)
 
 // 返回
 const goBack = () => {
@@ -949,7 +934,7 @@ const handleViewMatch = async (type, index = null) => {
             }
           }
 
-          .effective-objects {
+          .effective-objects-header {
             margin-bottom: 8px;
 
             .objects-label {
