@@ -99,7 +99,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted} from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, CirclePlus, CircleCloseFilled, Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -179,6 +179,25 @@ onMounted(async () => {
   await fetchPolicyDetail()
 })
 
+// 监听跨集群访问对象开关，初始化集群选项
+watch(() => formData.value.enableCrossCluster, async (enabled) => {
+  if (enabled && clusterOptions.value.length === 0) {
+    console.log('[Edit] 启用跨集群配置，初始化集群选项')
+    try {
+      await clusterStore.initializeClusters()
+      const clusters = clusterStore.clusters
+      clusterOptions.value = clusters.map(c => ({
+        label: c.displayName,
+        value: c.name
+      }))
+      console.log('[Edit] 集群选项初始化完成:', clusterOptions.value.length)
+    } catch (error) {
+      console.error('[Edit] 初始化集群选项失败:', error)
+      handleError(error, '获取集群列表失败')
+    }
+  }
+})
+
 // 获取集群名称映射
 const fetchClusterNames = async () => {
   try {
@@ -256,6 +275,9 @@ const fetchPolicyDetail = async () => {
         namespace: external.namespace,
         egressRoute: external.name
       }
+      
+      // 初始化跨集群选项数据
+      await initCrossClusterOptions(external)
     }
     
   } catch (error) {
@@ -278,6 +300,84 @@ const goBack = () => {
       name: policyName
     }
   })
+}
+
+// 初始化跨集群选项数据（编辑时使用）
+const initCrossClusterOptions = async (external) => {
+  try {
+    const targetClusterName = external.clusterName
+    
+    // 1. 初始化集群选项（所有可用集群）
+    await clusterStore.initializeClusters()
+    const clusters = clusterStore.clusters
+    clusterOptions.value = clusters.map(c => ({
+      label: c.displayName,
+      value: c.name
+    }))
+    
+    // 2. 获取当前网关信息
+    const currentCluster = route.params.clusterName
+    const currentGatewayName = originalData.value.egressNode?.name
+    
+    let sourceCluster = ''
+    let sourceGatewayName = ''
+    
+    if (originalData.value.egressNode?.type === 0) {
+      // 实体网关
+      sourceCluster = currentCluster
+      sourceGatewayName = currentGatewayName
+    } else if (originalData.value.egressNode?.type === 1) {
+      // 映射网关：格式为 "源集群-源网关"
+      const parts = currentGatewayName.split('-')
+      sourceCluster = parts[0]
+      sourceGatewayName = parts.slice(1).join('-')
+    }
+    
+    console.log('[Edit Init] 初始化跨集群选项:', {
+      sourceCluster,
+      sourceGateway: sourceGatewayName,
+      targetCluster: targetClusterName
+    })
+    
+    // 3. 并行获取映射网关、命名空间和路由选项
+    const [mappingResponse, namespaceResponse, routeResponse] = await Promise.all([
+      listSyncedEgressNodeName(sourceCluster, sourceGatewayName, targetClusterName),
+      getNamespaces(targetClusterName),
+      getExternalEgressPolicies(targetClusterName, external.egressNode?.name || '', originalData.value.destIPBlocks || [])
+    ])
+    
+    // 4. 设置映射网关选项
+    const mappedGatewayNames = mappingResponse.data || []
+    mappingGatewayOptions.value = mappedGatewayNames.map(name => ({
+      label: name,
+      value: name
+    }))
+    
+    // 5. 设置命名空间选项
+    const namespaces = namespaceResponse.data || []
+    namespaceOptions.value = namespaces.map(ns => ({
+      label: ns.name,
+      value: ns.name
+    }))
+    
+    // 6. 设置路由选项（筛选当前命名空间）
+    const policies = routeResponse.data || []
+    const filteredPolicies = policies.filter(policy => policy.namespace === external.namespace)
+    routeOptions.value = filteredPolicies.map(policy => ({
+      label: policy.name,
+      value: policy.name
+    }))
+    
+    console.log('[Edit Init] 选项初始化完成:', {
+      clusters: clusterOptions.value.length,
+      mappingGateways: mappingGatewayOptions.value.length,
+      namespaces: namespaceOptions.value.length,
+      routes: routeOptions.value.length
+    })
+  } catch (error) {
+    console.error('[Edit Init] 初始化跨集群选项失败:', error)
+    handleError(error, '初始化跨集群配置失败')
+  }
 }
   
 // 处理目标集群选择变化

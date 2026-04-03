@@ -557,7 +557,13 @@ const navigateToEgressNode = () => {
 // 查看匹配对象
 const handleViewMatch = async (type, index = null) => {
   try {
-    const clusterName = route.params.clusterName
+    // 根据类型选择正确的集群名称
+    // 本集群：使用当前路由的集群名称
+    // 跨集群：使用跨集群对象所在的集群名称
+    const clusterName = type === 'local' 
+      ? route.params.clusterName 
+      : routeData.value.crossCluster.clusterName
+    
     let targets = []
 
      // 辅助函数：将对象转换为 target 格式
@@ -600,6 +606,12 @@ const handleViewMatch = async (type, index = null) => {
       handleWarning('没有可用的访问对象')
       return
     }
+
+    console.log('[Detail] 查看匹配对象:', {
+      type,
+      clusterName,
+      targets
+    })
 
     const response = await getPods(clusterName, targets)
     const data = response.data || []
