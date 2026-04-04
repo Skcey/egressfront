@@ -227,7 +227,7 @@ const handleConfirm = () => {
   .drawer-pagination {
     margin-top: 16px;
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
   }
 }
 

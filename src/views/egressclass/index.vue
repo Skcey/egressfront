@@ -269,8 +269,8 @@ const handleCurrentChange = (page) => {
 
   .pagination-wrapper {
     display: flex;
-    justify-content: flex-end;
-    padding-top: 16px;
+    justify-content: center;
+    margin-top: 20px;
   }
 }
 </style>
