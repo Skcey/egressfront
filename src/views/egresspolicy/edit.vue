@@ -37,7 +37,7 @@
         <!-- 跨集群访问对象 - 只有实体网关才能配置 -->
         <CrossClusterConfig 
           v-model:enable-cross-cluster="formData.enableCrossCluster"
-          v-model:cross-cluster="crossCluster"
+          v-model:cross-cluster="formData.crossCluster"
           :is-gateway-mapped="isGatewayMapped"
           :gateway-name="originalData?.egressNode?.name"
           :cluster-options="clusterOptions"
@@ -53,7 +53,7 @@
 
         <!-- 底部按钮 -->
         <div class="footer-actions">
-          <el-button type="primary" @click="nextStep" :disabled="!canGoNext">
+          <el-button type="primary" @click="nextStep" :disabled="!canGoNextStep2">
             下一步
           </el-button>
           <el-button @click="handleCancel">取消</el-button>
@@ -74,7 +74,7 @@
         <!-- 跨集群访问对象 -->
         <CrossClusterDisplay 
           v-if="formData.enableCrossCluster"
-          :cross-cluster="crossCluster"
+          :cross-cluster="formData.crossCluster"
           :gateway-name="originalData?.egressNode?.name"
           title="跨集群访问对象"
           variant="detail"
@@ -142,25 +142,24 @@ const formData = ref({
       podValue: '',
       podSelectors: []
     }
-  ]
-})
-
-// 使用表单验证逻辑
-const { canGoNext, buildTargetsData, buildExternalEgressPolicies } = useFormValidation(formData)
-
-  // 跨集群配置
-  const crossCluster = ref({
+  ],
+  // 跨集群访问对象（与 create.vue 保持一致）
+  crossCluster: {
     targetCluster: '',
     mappedGateway: '',
     namespace: '',
     egressRoute: ''
-  })
+  }
+})
+
+// 使用表单验证逻辑
+const { canGoNextStep2, buildTargetsData, buildExternalEgressPolicies } = useFormValidation(formData)
   
-  // 跨集群选项数据
-  const clusterOptions = ref([])
-  const mappingGatewayOptions = ref([])
-  const namespaceOptions = ref([])
-  const routeOptions = ref([])
+// 跨集群选项数据
+const clusterOptions = ref([])
+const mappingGatewayOptions = ref([])
+const namespaceOptions = ref([])
+const routeOptions = ref([])
 
 // 计算当前网关是否为映射网关
 const isGatewayMapped = computed(() => {
@@ -269,7 +268,7 @@ const fetchPolicyDetail = async () => {
     // 填充跨集群访问对象
     if (data.externalEgressPolicies && data.externalEgressPolicies.length > 0) {
       const external = data.externalEgressPolicies[0]
-      crossCluster.value = {
+      formData.value.crossCluster = {
         targetCluster: external.clusterName,
         mappedGateway: external.egressNode?.name || '',
         namespace: external.namespace,
@@ -383,9 +382,9 @@ const initCrossClusterOptions = async (external) => {
 // 处理目标集群选择变化
 const handleTargetClusterChange = async (targetClusterName) => {
   // 清空后续选项
-  crossCluster.value.mappedGateway = ''
-  crossCluster.value.namespace = ''
-  crossCluster.value.egressRoute = ''
+  formData.value.crossCluster.mappedGateway = ''
+  formData.value.crossCluster.namespace = ''
+  formData.value.crossCluster.egressRoute = ''
   mappingGatewayOptions.value = []
   namespaceOptions.value = []
   routeOptions.value = []
@@ -456,8 +455,8 @@ const handleMappingGatewayChange = (gatewayName) => {
   console.log('[Edit] 映射网关变化:', gatewayName)
   
   // 重置后续选项
-  crossCluster.value.namespace = ''
-  crossCluster.value.egressRoute = ''
+  formData.value.crossCluster.namespace = ''
+  formData.value.crossCluster.egressRoute = ''
   routeOptions.value = []
   
   // 命名空间列表已经在选择目标集群时获取了，这里不需要重新获取
@@ -466,7 +465,7 @@ const handleMappingGatewayChange = (gatewayName) => {
   
 // 处理命名空间选择变化
 const handleNamespaceChange = async (namespace) => {
-  crossCluster.value.egressRoute = ''
+  formData.value.crossCluster.egressRoute = ''
 
   if (!namespace) {
     routeOptions.value = []
@@ -474,8 +473,8 @@ const handleNamespaceChange = async (namespace) => {
   }
 
   try {
-    const targetCluster = crossCluster.value.targetCluster
-    const gatewayName = crossCluster.value.mappedGateway
+    const targetCluster = formData.value.crossCluster.targetCluster
+    const gatewayName = formData.value.crossCluster.mappedGateway
 
     // 获取该命名空间下使用该映射网关的路由
     // 传递当前路由的目标地址块用于筛选
@@ -523,7 +522,7 @@ const navigateToCreateRoute = (targetCluster) => {
 
 // 下一步
 const nextStep = () => {
-  if (!canGoNext.value) {
+  if (!canGoNextStep2.value) {
     ElMessage.warning('请完成必填项')
     return
   }
@@ -561,7 +560,7 @@ const prevStep = () => {
       
       // 使用 useFormValidation 构建数据
       const targets = formData.value.enableLocalAccess ? buildTargetsData(formData.value.accessObjects) : null
-      const externalEgressPolicies = formData.value.enableCrossCluster ? buildExternalEgressPolicies(crossCluster.value) : []
+      const externalEgressPolicies = formData.value.enableCrossCluster ? buildExternalEgressPolicies(formData.value.crossCluster) : []
       
       const updateData = {
         name: originalData.value.name,

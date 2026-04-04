@@ -451,8 +451,6 @@ watch(() => route.params.clusterName, async () => {
   currentStep.value = 0
 })
 
-// 表单验证逻辑已移至 useFormValidation composable
-
 const goBack = () => {
   router.back()
 }
